@@ -1,9 +1,9 @@
-from utils import *
 import hydra
 from omegaconf import DictConfig
 import os
 import wget
 
+from stego.src.utils import *
 
 @hydra.main(config_path="configs", config_name="eval_config.yml")
 def my_app(cfg: DictConfig) -> None:

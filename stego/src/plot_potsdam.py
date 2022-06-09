@@ -3,9 +3,12 @@ import hydra
 import torch.multiprocessing
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
-from data import *
-from modules import *
-from train_segmentation import LitUnsupervisedSegmenter
+
+from stego.src.data import *
+from stego.src.modules import *
+from stego.src.train_segmentation import LitUnsupervisedSegmenter
+
+
 
 
 @hydra.main(config_path="configs", config_name="train_config.yml")

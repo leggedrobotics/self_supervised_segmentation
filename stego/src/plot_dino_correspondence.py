@@ -1,8 +1,5 @@
 import os
 from os.path import join
-from utils import get_transform, load_model, prep_for_plot, remove_axes, prep_args
-from modules import FeaturePyramidNet, DinoFeaturizer, sample
-from data import ContrastiveSegDataset
 import hydra
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -15,6 +12,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from matplotlib.colors import ListedColormap
 
+from stego.src.utils import get_transform, load_model, prep_for_plot, remove_axes, prep_args
+from stego.src.modules import FeaturePyramidNet, DinoFeaturizer, sample
+from stego.src.data import ContrastiveSegDataset
 
 def plot_heatmap(ax, image, heatmap, cmap="bwr", color=False, plot_img=True, symmetric=True):
     vmax = np.abs(heatmap).max()

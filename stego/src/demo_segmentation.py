@@ -1,4 +1,3 @@
-from modules import *
 import hydra
 import torch.multiprocessing
 from PIL import Image
@@ -8,6 +7,9 @@ from torch.utils.data import DataLoader, Dataset
 from train_segmentation import LitUnsupervisedSegmenter
 from tqdm import tqdm
 import random
+
+from stego.src.modules import *
+
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 

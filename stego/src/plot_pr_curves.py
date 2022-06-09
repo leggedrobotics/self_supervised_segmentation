@@ -12,9 +12,10 @@ from pytorch_lightning.utilities.seed import seed_everything
 from sklearn.metrics import auc, precision_recall_curve, average_precision_score
 from torch.utils.tensorboard.summary import hparams
 from torchvision.transforms import ToTensor
-from data import *
-from modules import *
-from train_segmentation import get_class_labels
+
+from stego.src.data import *
+from stego.src.modules import *
+from stego.src.train_segmentation import get_class_labels
 
 
 

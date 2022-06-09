@@ -1,5 +1,6 @@
-from modules import *
-from data import *
+from stego.src.modules import *
+from stego.src.data import *
+
 from collections import defaultdict
 from multiprocessing import Pool
 import hydra
@@ -9,7 +10,7 @@ from crf import dense_crf
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from train_segmentation import LitUnsupervisedSegmenter, prep_for_plot, get_class_labels
+from stego.src.train_segmentation import LitUnsupervisedSegmenter, prep_for_plot, get_class_labels
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 

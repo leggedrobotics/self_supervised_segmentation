@@ -3,3 +3,5 @@ data/*
 src/.env
 results/predictions/*
 src/iarpa
+**.egg-info
+**.pyc

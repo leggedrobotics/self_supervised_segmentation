@@ -1,6 +1,3 @@
-from utils import *
-from modules import *
-from data import *
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from datetime import datetime
@@ -14,6 +11,10 @@ import torch.multiprocessing
 import seaborn as sns
 from pytorch_lightning.callbacks import ModelCheckpoint
 import sys
+
+from stego.src.utils import *
+from stego.src.modules import *
+from stego.src.data import *
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 

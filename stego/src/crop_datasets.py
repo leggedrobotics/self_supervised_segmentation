@@ -1,6 +1,4 @@
-from modules import *
 import os
-from data import ContrastiveSegDataset
 import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
@@ -10,6 +8,8 @@ from torchvision.transforms.functional import five_crop, _get_image_size, crop
 from tqdm import tqdm
 from torch.utils.data import Dataset
 
+from stego.src.modules import *
+from stego.src.data import ContrastiveSegDataset
 
 def _random_crops(img, size, seed, n):
     """Crop the given image into four corners and the central crop.
