@@ -45,11 +45,11 @@ class DinoFeaturizer(nn.Module):
 
         if cfg.pretrained_weights is not None:
             state_dict = torch.load(cfg.pretrained_weights, map_location="cpu")
-            state_dict = state_dict["teacher"]
-            # remove `module.` prefix
-            state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
-            # remove `backbone.` prefix induced by multicrop wrapper
-            state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+            # state_dict = state_dict["teacher"]
+            # # remove `module.` prefix
+            # state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+            # # remove `backbone.` prefix induced by multicrop wrapper
+            # state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
 
             # state_dict = {k.replace("projection_head", "mlp"): v for k, v in state_dict.items()}
             # state_dict = {k.replace("prototypes", "last_layer"): v for k, v in state_dict.items()}
