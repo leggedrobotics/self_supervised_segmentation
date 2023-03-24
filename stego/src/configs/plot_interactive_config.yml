@@ -1,0 +1,26 @@
+image_a_path: "/media/plibera/test_images/imgs/train/000000308677.jpg"
+image_b_path: # Can be omitted to generate self-correspondences for the first image
+output_dir: "/media/plibera/results/correspondence"
+
+arch: dino # Available models: ["dino"]
+
+resolution: 512
+
+
+# Model Params
+extra_clusters: 0
+use_true_labels: False
+use_recalibrator: False
+model_type: "vit_small"
+use_fit_model: False
+dino_feat_type: "feat"
+projection_type: 
+dino_patch_size: 8
+granularity: 1
+continuous: True
+dim: 70
+dropout: True
+zero_clamp: True
+
+
+pretrained_weights: ~
