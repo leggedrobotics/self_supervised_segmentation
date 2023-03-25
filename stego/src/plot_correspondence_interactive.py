@@ -41,6 +41,26 @@ def save_figure(cfg):
     fig_name = os.path.join(cfg.output_dir, "corr_"+img_a_name+"_"+img_b_name+"_"+arch_name+".png")
     plt.savefig(fig_name)
 
+def reset_axes(axes):
+    axes[0].clear()
+    remove_axes(axes)
+    axes[0].set_title("Image A and Query Point", fontsize=20)
+    axes[1].set_title("Feature Cosine Similarity", fontsize=20)
+    axes[2].set_title("Image B", fontsize=20)
+    
+
+def plot_figure(net, img_a, img_b, query_point, axes, cfg):
+    _, heatmap_correspondence = get_heatmaps(net, img_a, img_b, query_point)
+    point = ((query_point[0, 0, 0] + 1) / 2 * cfg.resolution).cpu()
+    cmap = ListedColormap([(1, 0, 0, i / 255) for i in range(255)])
+    reset_axes(axes)
+    axes[0].imshow(prep_for_plot(img_a[0]))
+    axes[2].imshow(prep_for_plot(img_b[0]))
+    axes[0].scatter(point[0], point[1], color=(1, 0, 0), marker="x", s=500, linewidths=5)
+    plot_heatmap(axes[1], prep_for_plot(img_b[0]) * .8, heatmap_correspondence[0],
+                 plot_img=True, cmap=cmap, symmetric=False)
+    plt.show()
+
 
 @hydra.main(config_path="configs", config_name="plot_interactive_config.yml")
 def my_app(cfg: DictConfig) -> None:
@@ -53,40 +73,21 @@ def my_app(cfg: DictConfig) -> None:
         raise ValueError("Unknown arch {}".format(cfg.arch))
     net = net.cuda()
 
-    query_point = torch.tensor([[-.1, 0.0]]).reshape(1, 1, 1, 2).cuda()
-
     plt.style.use('dark_background')
     fig, axes = plt.subplots(1, 3, figsize=(3 * 5, 1 * 5), dpi=100)
-    remove_axes(axes)
-    axes[0].set_title("Image A and Query Point", fontsize=20)
-    axes[1].set_title("Feature Cosine Similarity", fontsize=20)
-    axes[2].set_title("Image B", fontsize=20)
+    reset_axes(axes)
     fig.tight_layout()
 
-    _, heatmap_correspondence = get_heatmaps(net, img_a, img_b, query_point)
-    colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0)]
-    cmaps = [
-        ListedColormap([(1, 0, 0, i / 255) for i in range(255)]),
-        ListedColormap([(0, 1, 0, i / 255) for i in range(255)]),
-        ListedColormap([(0, 0, 1, i / 255) for i in range(255)]),
-        ListedColormap([(1, 1, 0, i / 255) for i in range(255)])
-    ]
+    def onclick(event):
+        if event.xdata is not None and event.ydata is not None:
+            x = (event.xdata - cfg.resolution/2) / (cfg.resolution/2)
+            y = (event.ydata - cfg.resolution/2) / (cfg.resolution/2)
+            query_point = torch.tensor([[x, y]]).float().reshape(1, 1, 1, 2).cuda()
+            plot_figure(net, img_a, img_b, query_point, axes, cfg)
 
-    for point_num in range(query_point.shape[1]):
-        point = ((query_point[0, point_num, 0] + 1) / 2 * cfg.resolution).cpu()
-        img_point_h = point[0]
-        img_point_w = point[1]
-
-        plot_img = point_num == 0
-        if plot_img:
-            axes[0].imshow(prep_for_plot(img_a[0]))
-            axes[2].imshow(prep_for_plot(img_b[0]))
-        axes[0].scatter(img_point_h, img_point_w,
-                        c=colors[point_num], marker="x", s=500, linewidths=5)
-
-        plot_heatmap(axes[1], prep_for_plot(img_b[0]) * .8, heatmap_correspondence[point_num],
-                        plot_img=plot_img, cmap=cmaps[point_num], symmetric=False)
-    save_figure(cfg)
+    fig.canvas.mpl_connect('button_press_event', onclick)
+    query_point = torch.tensor([[0.0, 0.0]]).reshape(1, 1, 1, 2).cuda()
+    plot_figure(net, img_a, img_b, query_point, axes, cfg)
 
 
 if __name__ == "__main__":
