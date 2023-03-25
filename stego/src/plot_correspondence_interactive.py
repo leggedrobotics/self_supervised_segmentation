@@ -12,11 +12,10 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from matplotlib.colors import ListedColormap
 from PIL import Image
-from torchvision import transforms
+from torchvision import transforms as T
 
 from stego.src.utils import get_transform, load_model, prep_for_plot, remove_axes, prep_args
 from stego.src.modules import FeaturePyramidNet, DinoFeaturizer, sample
-from stego.src.data import ContrastiveSegDataset
 from stego.src.plot_dino_correspondence import get_heatmaps, plot_heatmap
 
 
@@ -25,9 +24,20 @@ def load_images_to_tensor(cfg):
     image_b = image_a
     if cfg.image_b_path is not None:
         image_b = Image.open(cfg.image_b_path)
-    preprocess_transform = get_transform(cfg.resolution, False, "center")
-    image_a_tensor = torch.unsqueeze(preprocess_transform(image_a), 0)
-    image_b_tensor = torch.unsqueeze(preprocess_transform(image_b), 0)
+    preprocess_a_transform = get_transform(cfg.resolution, False, "center")
+    preprocess_b_transform = preprocess_a_transform
+    if cfg.use_augmentations:
+        color_transform = T.ColorJitter(brightness=(cfg.brightness_factor, cfg.brightness_factor),
+                                        contrast=(cfg.contrast_factor, cfg.contrast_factor),
+                                        saturation=(cfg.saturation_factor, cfg.saturation_factor),
+                                        hue=(cfg.hue_factor, cfg.hue_factor))
+        if cfg.use_gaussian_blur:
+            gaussian_transform = T.GaussianBlur(kernel_size=cfg.gaussian_kernel_size, sigma=cfg.gaussian_sigma)
+            preprocess_b_transform = T.Compose([color_transform, gaussian_transform, preprocess_a_transform])
+        else:
+            preprocess_b_transform = T.Compose([color_transform, preprocess_a_transform])
+    image_a_tensor = torch.unsqueeze(preprocess_a_transform(image_a), 0)
+    image_b_tensor = torch.unsqueeze(preprocess_b_transform(image_b), 0)
     return image_a_tensor, image_b_tensor
 
 def save_figure(cfg):
@@ -54,10 +64,10 @@ def plot_figure(net, img_a, img_b, query_point, axes, cfg):
     point = ((query_point[0, 0, 0] + 1) / 2 * cfg.resolution).cpu()
     cmap = ListedColormap([(1, 0, 0, i / 255) for i in range(255)])
     reset_axes(axes)
-    axes[0].imshow(prep_for_plot(img_a[0]))
-    axes[2].imshow(prep_for_plot(img_b[0]))
+    axes[0].imshow(prep_for_plot(img_a[0], rescale=False))
+    axes[2].imshow(prep_for_plot(img_b[0], rescale=False))
     axes[0].scatter(point[0], point[1], color=(1, 0, 0), marker="x", s=500, linewidths=5)
-    plot_heatmap(axes[1], prep_for_plot(img_b[0]) * .8, heatmap_correspondence[0],
+    plot_heatmap(axes[1], prep_for_plot(img_b[0], rescale=False) * .8, heatmap_correspondence[0],
                  plot_img=True, cmap=cmap, symmetric=False)
     plt.show()
 
