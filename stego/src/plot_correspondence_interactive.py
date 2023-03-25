@@ -13,6 +13,7 @@ from tqdm import tqdm
 from matplotlib.colors import ListedColormap
 from PIL import Image
 from torchvision import transforms as T
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from stego.src.utils import get_transform, load_model, prep_for_plot, remove_axes, prep_args
 from stego.src.modules import FeaturePyramidNet, DinoFeaturizer, sample
@@ -59,16 +60,28 @@ def reset_axes(axes):
     axes[2].set_title("Image B", fontsize=20)
     
 
-def plot_figure(net, img_a, img_b, query_point, axes, cfg):
-    _, heatmap_correspondence = get_heatmaps(net, img_a, img_b, query_point)
+def plot_figure(net, img_a, img_b, query_point, axes, cfg, fig):
+    _, heatmap_correspondence = get_heatmaps(net, img_a, img_b, query_point, zero_mean=cfg.zero_mean, zero_clamp=cfg.zero_clamp)
     point = ((query_point[0, 0, 0] + 1) / 2 * cfg.resolution).cpu()
-    cmap = ListedColormap([(1, 0, 0, i / 255) for i in range(255)])
     reset_axes(axes)
     axes[0].imshow(prep_for_plot(img_a[0], rescale=False))
     axes[2].imshow(prep_for_plot(img_b[0], rescale=False))
     axes[0].scatter(point[0], point[1], color=(1, 0, 0), marker="x", s=500, linewidths=5)
-    plot_heatmap(axes[1], prep_for_plot(img_b[0], rescale=False) * .8, heatmap_correspondence[0],
-                 plot_img=True, cmap=cmap, symmetric=False)
+
+    img_b_bw = prep_for_plot(img_b[0], rescale=False) * .8
+    img_b_bw = np.ones_like(img_b_bw) * np.expand_dims(np.dot(np.array(img_b_bw)[..., :3], [0.2989, 0.5870, 0.1140]), -1)
+    axes[1].imshow(img_b_bw)
+    im1 = None
+    if cfg.zero_clamp:
+        im1 = axes[1].imshow(heatmap_correspondence[0], alpha=0.5, cmap=cfg.cmap, vmin=0.0, vmax=1.0)
+    else:
+        im1 = axes[1].imshow(heatmap_correspondence[0], alpha=0.5, cmap=cfg.cmap, vmin=-1.0, vmax=1.0)
+
+    divider = make_axes_locatable(axes[1])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    color_bar = fig.colorbar(im1, cax=cax, orientation='vertical')
+    color_bar.set_alpha(1)
+    color_bar.draw_all()
     plt.show()
 
 
@@ -83,7 +96,7 @@ def my_app(cfg: DictConfig) -> None:
         raise ValueError("Unknown arch {}".format(cfg.arch))
     net = net.cuda()
 
-    plt.style.use('dark_background')
+    # plt.style.use('dark_background')
     fig, axes = plt.subplots(1, 3, figsize=(3 * 5, 1 * 5), dpi=100)
     reset_axes(axes)
     fig.tight_layout()
@@ -93,11 +106,11 @@ def my_app(cfg: DictConfig) -> None:
             x = (event.xdata - cfg.resolution/2) / (cfg.resolution/2)
             y = (event.ydata - cfg.resolution/2) / (cfg.resolution/2)
             query_point = torch.tensor([[x, y]]).float().reshape(1, 1, 1, 2).cuda()
-            plot_figure(net, img_a, img_b, query_point, axes, cfg)
+            plot_figure(net, img_a, img_b, query_point, axes, cfg, fig)
 
     fig.canvas.mpl_connect('button_press_event', onclick)
     query_point = torch.tensor([[0.0, 0.0]]).reshape(1, 1, 1, 2).cuda()
-    plot_figure(net, img_a, img_b, query_point, axes, cfg)
+    plot_figure(net, img_a, img_b, query_point, axes, cfg, fig)
 
 
 if __name__ == "__main__":

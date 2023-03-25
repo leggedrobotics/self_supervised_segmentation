@@ -5,6 +5,9 @@ output_dir: "/media/plibera/results/correspondence"
 arch: dino # Available models: ["dino"]
 
 resolution: 512
+cmap: "turbo"
+zero_mean: False # Mean normalize cosine similarity values in the displayed heatmap
+zero_clamp: True # Clamp cosine similarity heatmap to 0
 
 # Augmentations params for image B
 use_augmentations: False
@@ -32,7 +35,5 @@ granularity: 1
 continuous: True
 dim: 70
 dropout: True
-zero_clamp: True
-
 
 pretrained_weights: ~

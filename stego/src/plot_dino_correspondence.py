@@ -36,19 +36,27 @@ def plot_heatmap(ax, image, heatmap, cmap="bwr", color=False, plot_img=True, sym
         return [ax.imshow(heatmap, alpha=.5, cmap=cmap, **kwargs)]
 
 
-def get_heatmaps(net, img, img_pos, query_points):
+def get_heatmaps(net, img, img_pos, query_points, zero_mean=True, zero_clamp=True):
     feats1, _ = net(img.cuda())
     feats2, _ = net(img_pos.cuda())
 
     sfeats1 = sample(feats1, query_points)
 
     attn_intra = torch.einsum("nchw,ncij->nhwij", F.normalize(sfeats1, dim=1), F.normalize(feats1, dim=1))
-    attn_intra -= attn_intra.mean([3, 4], keepdims=True)
-    attn_intra = attn_intra.clamp(0).squeeze(0)
+    if zero_mean:
+        attn_intra -= attn_intra.mean([3, 4], keepdims=True)
+    if zero_clamp:
+        attn_intra = attn_intra.clamp(0).squeeze(0)
+    else:
+        attn_intra = attn_intra.squeeze(0)
 
     attn_inter = torch.einsum("nchw,ncij->nhwij", F.normalize(sfeats1, dim=1), F.normalize(feats2, dim=1))
-    attn_inter -= attn_inter.mean([3, 4], keepdims=True)
-    attn_inter = attn_inter.clamp(0).squeeze(0)
+    if zero_mean:
+        attn_inter -= attn_inter.mean([3, 4], keepdims=True)
+    if zero_clamp:
+        attn_inter = attn_inter.clamp(0).squeeze(0)
+    else:
+        attn_inter = attn_inter.squeeze(0)
 
     heatmap_intra = F.interpolate(
         attn_intra, img.shape[2:], mode="bilinear", align_corners=True).squeeze(0).detach().cpu()
