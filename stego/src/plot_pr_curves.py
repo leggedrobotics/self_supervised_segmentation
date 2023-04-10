@@ -15,7 +15,7 @@ from torchvision.transforms import ToTensor
 
 from stego.src.data import *
 from stego.src.modules import *
-from stego.src.train_segmentation import get_class_labels
+from stego.src.train_segmentation import get_class_labels, LitUnsupervisedSegmenter
 
 
 
@@ -79,10 +79,10 @@ class LitRecalibrator(pl.LightningModule):
         else:
             dim = cfg.dim
 
-        data_dir = join(cfg.output_root, "data")
-        self.moco = FeaturePyramidNet(cfg.granularity, load_model("mocov2", data_dir).cuda(), dim, cfg.continuous)
+        # data_dir = join(cfg.output_root, "data")
+        # self.moco = FeaturePyramidNet(cfg.granularity, load_model("mocov2", data_dir).cuda(), dim, cfg.continuous)
         # self.dino = DinoFeaturizer(dim, cfg)
-        # self.dino = LitUnsupervisedSegmenter.load_from_checkpoint("../models/vit_base_cocostuff27.ckpt").net
+        self.dino = LitUnsupervisedSegmenter.load_from_checkpoint(cfg.model_path).net
         # self.crf = CRFModule()
         self.cm_metrics = UnsupervisedMetrics(
             "confusion_matrix/", n_classes, 0, False)
@@ -129,24 +129,29 @@ class LitRecalibrator(pl.LightningModule):
             img = batch["img"]
             label = batch["label"]
 
+            label = color_mask_to_class_ids(label, self.cfg)
+            if self.cfg.dataset_name == "directory":
+                if self.cfg.dir_dataset_name == "cocostuff":
+                    label = cocostuff_to_27_classes(label)
+
             dino_feats, dino_code = self.dino(img)
-            moco_feats, moco_code = self.moco(img)
+            # moco_feats, moco_code = self.moco(img)
 
             coord_shape = [img.shape[0], self.cfg.feature_samples, self.cfg.feature_samples, 2]
             coords1 = torch.rand(coord_shape, device=img.device) * 2 - 1
             coords2 = torch.rand(coord_shape, device=img.device) * 2 - 1
 
-            crf_fd = self.get_crf_fd(img, coords1, coords2)
+            # crf_fd = self.get_crf_fd(img, coords1, coords2)
 
-            ld, stego_fd, l1, l2 = self.get_net_fd(dino_code, dino_code, label, label, coords1, coords2)
-            ld, dino_fd, l1, l2 = self.get_net_fd(dino_feats, dino_feats, label, label, coords1, coords2)
-            ld, moco_fd, l1, l2 = self.get_net_fd(moco_feats, moco_feats, label, label, coords1, coords2)
+            ld, stego_fd, _, _ = self.get_net_fd(dino_code, dino_code, label, label, coords1, coords2)
+            ld, dino_fd, _, _ = self.get_net_fd(dino_feats, dino_feats, label, label, coords1, coords2)
+            # ld, moco_fd, l1, l2 = self.get_net_fd(moco_feats, moco_feats, label, label, coords1, coords2)
 
             return dict(
                 dino_fd=dino_fd,
                 stego_fd=stego_fd,
-                moco_fd=moco_fd,
-                crf_fd=crf_fd,
+                # moco_fd=moco_fd,
+                # crf_fd=crf_fd,
                 ld=ld
             )
 
@@ -195,21 +200,21 @@ class LitRecalibrator(pl.LightningModule):
 
         if self.trainer.is_global_zero:
             # plt.style.use('dark_background')
-            print("Plotting")
-            plt.figure(figsize=(5, 4), dpi=100)
-            plot_cm()
-            plt.tight_layout()
-            plt.show()
-            plt.clf()
+            # print("Plotting")
+            # plt.figure(figsize=(5, 4), dpi=100)
+            # plot_cm()
+            # plt.tight_layout()
+            # plt.show()
+            # plt.clf()
 
             print("Plotting")
             # plt.style.use('dark_background')
             plt.figure(figsize=(5, 4), dpi=100)
             ld = all_outputs["ld"]
-            plot_pr(prep_fd(all_outputs["stego_fd"]), ld, "STEGO (Ours)")
+            plot_pr(prep_fd(all_outputs["stego_fd"]), ld, "STEGO")
             plot_pr(prep_fd(all_outputs["dino_fd"]), ld, "DINO")
-            plot_pr(prep_fd(all_outputs["moco_fd"]), ld, "MoCoV2")
-            plot_pr(prep_fd(all_outputs["crf_fd"]), ld, "CRF")
+            # plot_pr(prep_fd(all_outputs["moco_fd"]), ld, "MoCoV2")
+            # plot_pr(prep_fd(all_outputs["crf_fd"]), ld, "CRF")
             plt.xlim([0, 1])
             plt.ylim([0, 1])
             plt.legend(fontsize=12)

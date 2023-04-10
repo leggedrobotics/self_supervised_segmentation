@@ -1,5 +1,5 @@
-image_a_path: "/media/plibera/test_images/imgs/train/000000160970.jpg"
-image_b_path: "/media/plibera/test_images/imgs/train/000000308677.jpg" # Can be omitted to generate self-correspondences for the first image
+image_a_path: "/media/image1.png" #"/media/forest_youtube/virtual_hike/imgs/val/virtual_hike_3.jpg"
+image_b_path: "/media/image2.png" #"/media/forest_youtube/virtual_hike/imgs/val/virtual_hike_3.jpg" # Can be omitted to generate self-correspondences for the first image
 output_dir: "/media/plibera/results/correspondence"
 
 arch: dino # Available models: ["dino"]

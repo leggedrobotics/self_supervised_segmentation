@@ -1,6 +1,4 @@
-from stego.src.modules import *
-from stego.src.data import *
-
+import os
 from collections import defaultdict
 from multiprocessing import Pool
 import hydra
@@ -11,6 +9,8 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from stego.src.train_segmentation import LitUnsupervisedSegmenter, prep_for_plot, get_class_labels
+from stego.src.modules import *
+from stego.src.data import *
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -58,7 +58,7 @@ def batched_crf(pool, img_tensor, prob_tensor):
 @hydra.main(config_path="configs", config_name="eval_config.yml")
 def my_app(cfg: DictConfig) -> None:
     pytorch_data_dir = cfg.pytorch_data_dir
-    result_dir = "../results/predictions/{}".format(cfg.experiment_name)
+    result_dir = os.path.join(cfg.output_root, cfg.experiment_name)
     os.makedirs(join(result_dir, "img"), exist_ok=True)
     os.makedirs(join(result_dir, "label"), exist_ok=True)
     os.makedirs(join(result_dir, "cluster"), exist_ok=True)
@@ -66,6 +66,9 @@ def my_app(cfg: DictConfig) -> None:
 
     for model_path in cfg.model_paths:
         model = LitUnsupervisedSegmenter.load_from_checkpoint(model_path)
+        model.cfg.dataset_name = cfg.dataset_name
+        model.cfg.dir_dataset_name = cfg.dir_dataset_name
+        model.cfg.dir_dataset_n_classes = cfg.dir_dataset_n_classes
         print(OmegaConf.to_yaml(model.cfg))
 
         run_picie = cfg.run_picie and model.cfg.dataset_name == "cocostuff27"
@@ -87,7 +90,7 @@ def my_app(cfg: DictConfig) -> None:
         )
 
         test_loader = DataLoader(test_dataset, cfg.batch_size * 2,
-                                 shuffle=False, num_workers=cfg.num_workers,
+                                 shuffle=True, num_workers=cfg.num_workers,
                                  pin_memory=True, collate_fn=flexible_collate)
 
         model.eval().cuda()
@@ -110,6 +113,9 @@ def my_app(cfg: DictConfig) -> None:
             # all_good_images = range(80)
             # all_good_images = [ 5, 20, 56]
             all_good_images = [11, 32, 43, 52]
+        elif model.cfg.dataset_name == "directory":
+            # all_good_images = range(min(len(test_dataset), 100))
+            all_good_images = [19, 54, 67, 66, 65, 75, 77, 76, 124]
         else:
             raise ValueError("Unknown Dataset {}".format(model.cfg.dataset_name))
         batch_nums = torch.tensor([n // (cfg.batch_size * 2) for n in all_good_images])
@@ -121,6 +127,7 @@ def my_app(cfg: DictConfig) -> None:
                 with torch.no_grad():
                     img = batch["img"].cuda()
                     label = batch["label"].cuda()
+                    label = color_mask_to_class_ids(label, cfg)
 
                     feats, code1 = par_model(img)
                     feats, code2 = par_model(img.flip(dims=[3]))

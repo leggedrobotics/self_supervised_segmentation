@@ -12,6 +12,7 @@ dependencies:
 - torchaudio>=0.7.2
 - pytorch-cuda=11.6
 - nvidia-apex==0.1.0
+- scikit-learn
 - scikit-image
 - opencv
 - cupy

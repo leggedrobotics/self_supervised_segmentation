@@ -1,17 +1,17 @@
-output_root: '../'
-pytorch_data_dir: '/datadrive/pytorch-data/'
-experiment_name: "cocostuff"
+output_root: '/media/plibera/results/predictions'
+pytorch_data_dir: '/media'
+experiment_name: "yt_forest"
 res: 320
 batch_size: 8
 num_workers: 24
-run_picie: True
+run_picie: False
 run_crf: True
 run_prediction: True
-dark_mode: True
+dark_mode: False
 use_ddp: False
 
 model_paths:
-  - "../saved_models/cocostuff27_vit_base_5.ckpt"
+  - "/media/plibera/stego/saved_models/cocostuff27_vit_base_5.ckpt"
   #- "../saved_models/cityscapes_vit_base_1.ckpt"
   #- "../saved_models/potsdam_test.ckpt"
 
@@ -21,3 +21,10 @@ hydra:
   output_subdir: ~
   #job_logging: "disabled"
   #hydra_logging: "disabled"
+
+
+dataset_name: "directory"
+
+# Used if dataset_name is "directory"
+dir_dataset_name: "cocostuff"
+dir_dataset_n_classes: 256
