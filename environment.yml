@@ -3,14 +3,16 @@ channels:
 - pytorch
 - conda-forge
 - menpo
+- nvidia
 dependencies:
 - python=3.6.9
 - pip>=21.0,<22
 - pytorch==1.7.1
-- torchvision==0.8.2
-- torchaudio==0.7.2
-- cudatoolkit=11.0
+- torchvision>=0.8.2
+- torchaudio>=0.7.2
+- pytorch-cuda=11.6
 - nvidia-apex==0.1.0
+- scikit-learn
 - scikit-image
 - opencv
 - cupy

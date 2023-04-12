@@ -71,6 +71,101 @@ def create_cityscapes_colormap():
               (0, 0, 0)]
     return np.array(colors)
 
+def create_freiburg_forest_colormap():
+    colors = [(0, 0, 0),       # Object
+              (170, 170, 170), # Trail
+              (0, 255, 0),     # Grass
+              (0, 120, 255),   # Sky
+              (102, 102, 51)]  # Vegetation
+    return np.array(colors)
+
+def create_RUGD_colormap():
+    colors = [(0, 0, 0),        # void
+              (108, 64, 20),    # dirt
+              (255, 229, 204),  # sand
+              (0, 102, 0),      # grass
+              (0, 255, 0),      # tree
+              (0, 153, 153),    # pole
+              (0, 128, 255),    # water
+              (0, 0, 255),      # sky
+              (255, 255, 0),    # vehicle
+              (255, 0, 127),    # container/generic-object
+              (64, 64, 64),     # asphalt
+              (255, 128, 0),    # gravel
+              (255, 0, 0),      # building
+              (153, 76, 0),     # mulch
+              (102, 102, 0),    # rock-bed 
+              (102, 0, 0),      # log
+              (0, 255, 128),    # bicycle
+              (204, 153, 255),  # person
+              (102, 0, 204),    # fence
+              (255, 153, 204),  # bush
+              (0, 102, 102),    # sign
+              (153, 204, 255),  # rock
+              (102, 255, 255),  # bridge
+              (101, 101, 11),   # concrete
+              (114, 85, 47)]    # picnic-table
+    return np.array(colors)
+
+
+def get_colormap(cfg):
+    if cfg.dataset_name == "directory":
+        if cfg.dir_dataset_name == "freiburg_forest":
+            return create_freiburg_forest_colormap()
+        elif cfg.dir_dataset_name == "RUGD":
+            return create_RUGD_colormap()
+        elif cfg.dir_dataset_name == "cocostuff":
+            return np.array([(i, i, i) for i in range(cfg.dir_dataset_n_classes)])
+    return None
+
+def color_mask_to_class_ids(mask, cfg):
+    if mask.shape[1] == 1:
+        return mask.squeeze()
+    cmap = get_colormap(cfg)
+    if cmap is None:
+        return mask
+    for i in range(cmap.shape[0]):
+        color = torch.from_numpy(cmap[i]).cuda()
+        a = mask == color
+        indices = torch.all(a, axis=3)
+        mask[indices] = i
+    mask = torch.unique(mask, dim=-1).squeeze()
+    return mask
+
+def cocostuff_to_27_classes(mask):
+    classes27 = [
+        [0],                                                    # person
+        [1, 2, 3, 4, 5, 6, 7, 8],                               # vehicle
+        [9, 10, 11, 12, 13, 14],                                # outdoor
+        [15, 16, 17, 18, 19, 20, 21, 22, 23, 24],               # animal
+        [25, 26, 27, 28, 29, 30, 31, 32],                       # accessory
+        [33, 34, 35, 36, 37, 38, 39, 40, 41, 42],               # sports
+        [43, 44, 45, 46, 47, 48, 49, 50],                       # kitchen
+        [51, 52, 53, 54, 55, 56, 57, 58, 59, 60],               # food
+        [61, 62, 63, 64, 65, 66, 67, 68, 69, 70],               # furniture
+        [71, 72, 73, 74, 75, 76],                               # electronic
+        [77, 78, 79, 80, 81, 82],                               # appliance
+        [83, 84, 85, 86, 87, 88, 89, 90],                       # indoor
+        [119, 147, 154, 177, 178],                              # water
+        [110, 124, 125, 135, 139, 143, 144, 146, 148, 153, 158],# ground
+        [126, 134, 149, 159, 161, 181],                         # solid
+        [105, 156],                                             # sky
+        [93, 96, 118, 123, 128, 133, 141, 162, 168],            # plant
+        [98, 112, 137, 145, 163],                               # structural
+        [94, 95, 127, 150, 157, 165],                           # building
+        [120, 121, 152, 169],                                   # food
+        [91, 92, 103, 104, 108, 130, 136, 140, 151, 166, 167],  # textile
+        [97, 106, 107, 109, 111, 122, 129, 132, 155, 160, 164], # furniture
+        [179, 180],                                             # window
+        [100, 113, 114, 115, 116, 117],                         # floor
+        [101, 102],                                             # ceiling
+        [170, 171, 172, 173, 174, 175, 176],                    # wall
+        [99, 131, 138, 142],                                    # rawmaterial
+    ]
+    for i, class_ids in enumerate(classes27):
+        for class_id in class_ids:
+            mask = torch.where(mask==class_id, i, mask)
+    return mask
 
 class DirectoryDataset(Dataset):
     def __init__(self, root, path, image_set, transform, target_transform):
@@ -94,6 +189,10 @@ class DirectoryDataset(Dataset):
     def __getitem__(self, index):
         image_fn = self.img_files[index]
         img = Image.open(join(self.img_dir, image_fn))
+        if len(img.getbands()) == 1:
+            rgbimg = Image.new("RGB", img.size)
+            rgbimg.paste(img)
+            img = rgbimg
 
         if self.label_files is not None:
             label_fn = self.label_files[index]

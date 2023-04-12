@@ -35,7 +35,7 @@ class UnlabeledImageFolder(Dataset):
 
 @hydra.main(config_path="configs", config_name="demo_config.yml")
 def my_app(cfg: DictConfig) -> None:
-    result_dir = "../results/predictions/{}".format(cfg.experiment_name)
+    result_dir = os.path.join(cfg.output_root, cfg.experiment_name)
     os.makedirs(result_dir, exist_ok=True)
     os.makedirs(join(result_dir, "cluster"), exist_ok=True)
     os.makedirs(join(result_dir, "linear"), exist_ok=True)
@@ -78,6 +78,11 @@ def my_app(cfg: DictConfig) -> None:
                 new_name = ".".join(name[j].split(".")[:-1]) + ".png"
                 Image.fromarray(linear_crf.astype(np.uint8)).save(join(result_dir, "linear", new_name))
                 Image.fromarray(cluster_crf.astype(np.uint8)).save(join(result_dir, "cluster", new_name))
+
+                new_name_vis = ".".join(name[j].split(".")[:-1]) + "_vis.png"
+                Image.fromarray(model.label_cmap[linear_crf].astype(np.uint8)).save(join(result_dir, "linear", new_name_vis))
+                Image.fromarray(model.label_cmap[cluster_crf].astype(np.uint8)).save(join(result_dir, "cluster", new_name_vis))
+
 
 
 if __name__ == "__main__":
