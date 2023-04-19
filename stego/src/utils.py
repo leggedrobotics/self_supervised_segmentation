@@ -20,6 +20,26 @@ from torchvision import transforms as T
 from torch.utils.tensorboard.summary import hparams
 
 
+def load_image_to_tensor(img_path, resolution=320, brightness_factor=1.0,
+                         contrast_factor=1.0, saturation_factor=1.0, hue_factor=0.0,
+                         gaussian_sigma=None, gaussian_kernel_size=None):
+    img = Image.open(img_path)
+    transforms = []
+    if brightness_factor != 1.0 or contrast_factor != 1.0 or saturation_factor != 1.0 or hue_factor != 0.0:
+        transforms.append(T.ColorJitter(brightness=(brightness_factor, brightness_factor),
+                                        contrast=(contrast_factor, contrast_factor),
+                                        saturation=(saturation_factor, saturation_factor),
+                                        hue=(hue_factor, hue_factor)))
+    if gaussian_sigma is not None and gaussian_kernel_size is not None:
+        transforms.append(T.GaussianBlur(kernel_size=gaussian_kernel_size, sigma=gaussian_sigma))
+    elif gaussian_sigma is not None and gaussian_kernel_size is not None:
+        raise ValueError("Both sigma and kernel size for gaussian blur augmentation need to be None or specified, but exactly one was specified.")
+    transforms.append(get_transform(resolution, False, "center"))
+    preprocess_transform = T.Compose(transforms)
+    image_tensor = torch.unsqueeze(preprocess_transform(img), 0)
+    return image_tensor
+
+
 def prep_for_plot(img, rescale=True, resize=None):
     if resize is not None:
         img = F.interpolate(img.unsqueeze(0), resize, mode="bilinear")
