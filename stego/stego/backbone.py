@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 import stego.stego.backbones.dino.vision_transformer as vits
 from torch import nn
+import numpy as np
 
 
 def get_backbone(cfg):
@@ -17,7 +18,7 @@ class DinoViT(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
-        self.patch_size = self.cfg.dino_patch_size
+        self.patch_size = self.cfg.patch_size
         self.model_type = self.cfg.model_type
         self.model = vits.__dict__[self.model_type](
             patch_size=self.patch_size,
@@ -25,7 +26,7 @@ class DinoViT(nn.Module):
         for p in self.model.parameters():
             p.requires_grad = False
         self.model.eval().cuda()
-        self.dropout = torch.nn.Dropout2d(p=torch.clmap(self.cfg.dropout_p, min=0.0, max=1.0))
+        self.dropout = torch.nn.Dropout2d(p=np.clip(self.cfg.dropout_p, 0.0, 1.0))
 
         if self.model_type == "vit_small" and self.patch_size == 16:
             url = "dino_deitsmall16_pretrain/dino_deitsmall16_pretrain.pth"
@@ -66,7 +67,7 @@ class DinoViT(nn.Module):
             assert (img.shape[3] % self.patch_size == 0)
 
             # get selected layer activations
-            feat, attn, qkv = self.model.get_intermediate_feat(img, n=n)
+            feat, attn, qkv = self.model.get_intermediate_feat(img)
             feat, attn, qkv = feat[0], attn[0], qkv[0]
 
             feat_h = img.shape[2] // self.patch_size

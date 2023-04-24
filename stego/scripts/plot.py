@@ -15,28 +15,14 @@ from PIL import Image
 from torchvision import transforms as T
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from stego.src.utils import get_transform, load_model, prep_for_plot, remove_axes, prep_args, load_image_to_tensor
-from stego.src.modules import FeaturePyramidNet, DinoFeaturizer, sample
-from stego.src.plot_dino_correspondence import get_heatmaps, plot_heatmap
+from stego.stego.stego import *
 
 
 
 class Plotter():
     def __init__(self, cfg):
         self.cfg = cfg
-
-
-    def save_figure(self):
-        img_a_name = os.path.splitext(os.path.basename(self.cfg.image_a_path))[0]
-        img_b_name = img_a_name
-        if self.cfg.image_b_path is not None:
-            img_b_name = os.path.splitext(os.path.basename(self.cfg.image_b_path))[0]
-        arch_name = self.cfg.arch
-        if arch_name == "dino":
-            arch_name = self.cfg.arch+"_"+self.cfg.model_type
-        fig_name = os.path.join(self.cfg.output_dir, "corr_"+img_a_name+"_"+img_b_name+"_"+arch_name+".png")
-        plt.savefig(fig_name)
-
+        self.stego = STEGO(cfg.n_classes).cuda()
 
     def reset_axes(self, axes):
         axes[0].clear()
@@ -46,8 +32,38 @@ class Plotter():
         axes[2].set_title("Image B", fontsize=20)
 
 
-    def plot_figure(self, net, img_a, img_b, query_point, axes, fig):
-        _, heatmap_correspondence = get_heatmaps(net, img_a, img_b, query_point, zero_mean=self.cfg.zero_mean, zero_clamp=self.cfg.zero_clamp)
+    def get_heatmaps(self, img, img_pos, query_points, zero_mean=True, zero_clamp=True):
+        feats1, _ = self.stego.get_feats(img.cuda())
+        feats2, _ = self.stego.get_feats(img_pos.cuda())
+
+        sfeats1 = sample(feats1, query_points)
+
+        attn_intra = torch.einsum("nchw,ncij->nhwij", F.normalize(sfeats1, dim=1), F.normalize(feats1, dim=1))
+        if zero_mean:
+            attn_intra -= attn_intra.mean([3, 4], keepdims=True)
+        if zero_clamp:
+            attn_intra = attn_intra.clamp(0).squeeze(0)
+        else:
+            attn_intra = attn_intra.squeeze(0)
+
+        attn_inter = torch.einsum("nchw,ncij->nhwij", F.normalize(sfeats1, dim=1), F.normalize(feats2, dim=1))
+        if zero_mean:
+            attn_inter -= attn_inter.mean([3, 4], keepdims=True)
+        if zero_clamp:
+            attn_inter = attn_inter.clamp(0).squeeze(0)
+        else:
+            attn_inter = attn_inter.squeeze(0)
+
+        heatmap_intra = F.interpolate(
+            attn_intra, img.shape[2:], mode="bilinear", align_corners=True).squeeze(0).detach().cpu()
+        heatmap_inter = F.interpolate(
+            attn_inter, img_pos.shape[2:], mode="bilinear", align_corners=True).squeeze(0).detach().cpu()
+
+        return heatmap_intra, heatmap_inter
+
+
+    def plot_figure(self, img_a, img_b, query_point, axes, fig):
+        _, heatmap_correspondence = self.get_heatmaps(img_a, img_b, query_point, zero_mean=self.cfg.zero_mean, zero_clamp=self.cfg.zero_clamp)
         point = ((query_point[0, 0, 0] + 1) / 2 * self.cfg.resolution).cpu()
         self.reset_axes(axes)
         axes[0].imshow(prep_for_plot(img_a[0], rescale=False))
@@ -80,13 +96,6 @@ class Plotter():
                                      self.cfg.contrast_factor, self.cfg.saturation_factor,
                                      self.cfg.hue_factor, self.cfg.gaussian_sigma, self.cfg.gaussian_kernel_size)
 
-        if self.cfg.arch == "dino":
-            net = DinoFeaturizer(cfg.dim, cfg)
-        else:
-            raise ValueError("Unknown arch {}".format(cfg.arch))
-        net = net.cuda()
-
-        # plt.style.use('dark_background')
         fig, axes = plt.subplots(1, 3, figsize=(3 * 5, 1 * 5), dpi=100)
         self.reset_axes(axes)
         fig.tight_layout()
@@ -96,11 +105,11 @@ class Plotter():
                 x = (event.xdata - self.cfg.resolution/2) / (self.cfg.resolution/2)
                 y = (event.ydata - self.cfg.resolution/2) / (self.cfg.resolution/2)
                 query_point = torch.tensor([[x, y]]).float().reshape(1, 1, 1, 2).cuda()
-                self.plot_figure(net, img_a, img_b, query_point, axes, fig)
+                self.plot_figure(img_a, img_b, query_point, axes, fig)
 
         fig.canvas.mpl_connect('button_press_event', onclick)
         query_point = torch.tensor([[0.0, 0.0]]).reshape(1, 1, 1, 2).cuda()
-        self.plot_figure(net, img_a, img_b, query_point, axes, fig)
+        self.plot_figure(img_a, img_b, query_point, axes, fig)
     
     def plot(self):
         if self.cfg.plot_correspondences_interactive:

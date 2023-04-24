@@ -6,6 +6,8 @@ import numpy as np
 import pydensecrf.densecrf as dcrf
 import pydensecrf.utils as utils
 import torchvision.transforms.functional as VF
+import omegaconf
+import os
 
 from stego.stego.backbone import *
 from stego.stego.utils import *
@@ -130,11 +132,11 @@ class ContrastiveCorrelationLoss(nn.Module):
                 neg_inter_cd)
 
 
-class CRF(nn.Module):
+class CRF():
     def __init__(self, cfg):
         self.cfg = cfg
 
-    def forward(self, image_tensor: torch.FloatTensor, output_logits: torch.FloatTensor):
+    def dense_crf(self, image_tensor: torch.FloatTensor, output_logits: torch.FloatTensor):
         image = np.array(VF.to_pil_image(unnorm(image_tensor)))[:, :, ::-1]
         H, W = image.shape[:2]
         image = np.ascontiguousarray(image)
@@ -163,29 +165,30 @@ class CRF(nn.Module):
 
 class STEGO(pl.LightningModule):
 
-    def __init__(self, cfg, dim, n_classes):
+    def __init__(self, n_classes):
         super().__init__()
-        self.cfg = cfg
-        self.dim = dim
+        with open(os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r") as file:
+            self.cfg = omegaconf.OmegaConf.load(file)
+        self.dim = self.cfg.dim
         self.n_classes = n_classes
-        self.backbone = get_backbone(cfg)
+        self.backbone = get_backbone(self.cfg)
         self.backbone_dim = self.backbone.get_output_feat_dim()
         self.segmentation_head = SegmentationHead(self.backbone_dim, self.dim)
 
-        self.cluster_probe = ClusterLookup(dim, self.n_classes + self.cfg.extra_clusters)
-        self.linear_probe = nn.Conv2d(dim, n_classes, (1, 1))
+        self.cluster_probe = ClusterLookup(self.dim, self.n_classes + self.cfg.extra_clusters)
+        self.linear_probe = nn.Conv2d(self.dim, n_classes, (1, 1))
 
         self.cluster_metrics = UnsupervisedMetrics(
-            "test/cluster/", n_classes, cfg.extra_clusters, True)
+            "test/cluster/", n_classes, self.cfg.extra_clusters, True)
         self.linear_metrics = UnsupervisedMetrics(
             "test/linear/", n_classes, 0, False)
 
         self.linear_probe_loss_fn = torch.nn.CrossEntropyLoss()
-        self.contrastive_corr_loss_fn = ContrastiveCorrelationLoss(cfg)
+        self.contrastive_corr_loss_fn = ContrastiveCorrelationLoss(self.cfg)
         for p in self.contrastive_corr_loss_fn.parameters():
             p.requires_grad = False
 
-        self.crf = CRF(cfg)
+        self.crf = CRF(self.cfg)
 
         self.save_hyperparameters()
 
@@ -214,8 +217,8 @@ class STEGO(pl.LightningModule):
         linear_crf = torch.empty(img.size())
         for j in range(img.shape[0]):
             single_img = img[j].cpu()
-            cluster_crf[j] = self.crf(single_img, cluster_probs[j]).argmax(0)
-            linear_crf[j] = self.crf(single_img, linear_probs[j]).argmax(0)
+            cluster_crf[j] = self.crf.dense_crf(single_img, cluster_probs[j]).argmax(0)
+            linear_crf[j] = self.crf.dense_crf(single_img, linear_probs[j]).argmax(0)
         return cluster_crf, linear_crf
 
 
