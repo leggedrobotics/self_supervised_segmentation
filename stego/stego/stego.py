@@ -165,10 +165,13 @@ class CRF():
 
 class STEGO(pl.LightningModule):
 
-    def __init__(self, n_classes):
+    def __init__(self, n_classes, cfg=None):
         super().__init__()
-        with open(os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r") as file:
-            self.cfg = omegaconf.OmegaConf.load(file)
+        if cfg is None:
+            with open(os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r") as file:
+                self.cfg = omegaconf.OmegaConf.load(file)
+        else:
+            self.cfg = cfg
         self.dim = self.cfg.dim
         self.n_classes = n_classes
         self.backbone = get_backbone(self.cfg)

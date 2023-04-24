@@ -1,5 +1,6 @@
 image_dir: "/media/forest_youtube/virtual_hike/imgs/val"
 output_root: "/media/plibera/results/segmentation"
+model_path: "/media/plibera/stego/saved_models/stego_cocostuff27_vit_base_5.ckpt"
 experiment_name: "forest_youtube_val"
 resolution: 320
 

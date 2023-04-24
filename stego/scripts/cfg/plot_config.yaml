@@ -1,4 +1,5 @@
 # Data and paths
+model_path: "/media/plibera/stego/saved_models/stego_cocostuff27_vit_base_5.ckpt"
 resolution: 512
 cmap: "turbo"
 zero_mean: False # Mean normalize cosine similarity values in the displayed heatmap

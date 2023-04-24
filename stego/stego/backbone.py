@@ -19,7 +19,7 @@ class DinoViT(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.patch_size = self.cfg.patch_size
-        self.model_type = self.cfg.model_type
+        self.model_type = self.cfg.backbone_type
         self.model = vits.__dict__[self.model_type](
             patch_size=self.patch_size,
             num_classes=0)

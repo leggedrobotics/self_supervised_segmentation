@@ -1,0 +1,9 @@
+model_path: "/media/plibera/stego/saved_models/cocostuff27_vit_base_5.ckpt"
+output_path: "/media/plibera/stego/saved_models/stego_cocostuff27_vit_base_5.ckpt"
+
+hydra:
+  run:
+    dir: "."
+  output_subdir: ~
+  #job_logging: "disabled"
+  #hydra_logging: "disabled"

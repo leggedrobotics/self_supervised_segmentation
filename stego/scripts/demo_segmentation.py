@@ -18,7 +18,7 @@ def my_app(cfg: DictConfig) -> None:
     os.makedirs(os.path.join(result_dir, "cluster"), exist_ok=True)
     os.makedirs(os.path.join(result_dir, "linear"), exist_ok=True)
 
-    model = STEGO(cfg.n_classes)
+    model = STEGO.load_from_checkpoint(cfg.model_path)
     print(OmegaConf.to_yaml(model.cfg))
 
     dataset = UnlabeledImageFolder(
@@ -31,7 +31,7 @@ def my_app(cfg: DictConfig) -> None:
                         pin_memory=True, collate_fn=flexible_collate)
 
     model.eval().cuda()
-    cmap = create_RUGD_colormap()
+    cmap = create_cityscapes_colormap()
 
     for i, (img, name) in enumerate(tqdm(loader)):
         with torch.no_grad():
