@@ -1,0 +1,10 @@
+image_dir: "/media/forest_youtube/virtual_hike/imgs/val"
+output_root: "/media/plibera/results/segmentation"
+experiment_name: "forest_youtube_val"
+resolution: 320
+
+# Loader params
+batch_size: 8
+num_workers: 24
+
+n_classes: 24 # TODO: Remove this, add model loading

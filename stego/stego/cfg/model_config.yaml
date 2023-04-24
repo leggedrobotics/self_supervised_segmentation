@@ -9,7 +9,7 @@ pretrained_weights:
 dim: 70
 
 # Clustering
-extra_clusters: 24
+extra_clusters: 0
 
 # CRF
 crf_max_iter: 10

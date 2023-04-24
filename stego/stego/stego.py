@@ -11,7 +11,7 @@ import os
 
 from stego.stego.backbone import *
 from stego.stego.utils import *
-
+from stego.stego.data import *
 
 
 class SegmentationHead(nn.Module):
@@ -136,7 +136,7 @@ class CRF():
     def __init__(self, cfg):
         self.cfg = cfg
 
-    def dense_crf(self, image_tensor: torch.FloatTensor, output_logits: torch.FloatTensor):
+    def dense_crf(self, image_tensor: torch.FloatTensor, output_logits: torch.FloatTensor) -> torch.FloatTensor:
         image = np.array(VF.to_pil_image(unnorm(image_tensor)))[:, :, ::-1]
         H, W = image.shape[:2]
         image = np.ascontiguousarray(image)
@@ -159,7 +159,7 @@ class CRF():
 
         Q = d.inference(self.cfg.crf_max_iter)
         Q = np.array(Q).reshape((c, h, w))
-        return Q    
+        return torch.from_numpy(Q)    
 
 
 
@@ -213,13 +213,14 @@ class STEGO(pl.LightningModule):
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         cluster_probs = self.cluster_probe(code, 2, log_probs=True).cpu()
         linear_probs = torch.log_softmax(self.linear_probe(code), dim=1).cpu()
-        cluster_crf = torch.empty(img.size())
-        linear_crf = torch.empty(img.size())
+        cluster_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
+        linear_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
         for j in range(img.shape[0]):
-            single_img = img[j].cpu()
-            cluster_crf[j] = self.crf.dense_crf(single_img, cluster_probs[j]).argmax(0)
+            single_img = img[j]
+            x = self.crf.dense_crf(single_img, cluster_probs[j]).argmax(0)
+            cluster_crf[j] = x
             linear_crf[j] = self.crf.dense_crf(single_img, linear_probs[j]).argmax(0)
-        return cluster_crf, linear_crf
+        return cluster_crf.int(), linear_crf.int()
 
 
     def training_step(self, batch, batch_idx):
