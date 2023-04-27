@@ -1,17 +1,18 @@
 # Data and paths
 model_path: "/media/plibera/stego/saved_models/stego_cocostuff27_vit_base_5.ckpt"
-resolution: 512
 cmap: "turbo"
 zero_mean: False # Mean normalize cosine similarity values in the displayed heatmap
 zero_clamp: True # Clamp cosine similarity heatmap to 0
-n_classes: 24
+
 
 
 # Interactive correspondences plot
-plot_correspondences_interactive: True
-image_a_path: "/media/image1.png" #"/media/forest_youtube/virtual_hike/imgs/val/virtual_hike_3.jpg"
-image_b_path: "/media/image2.png" #"/media/forest_youtube/virtual_hike/imgs/val/virtual_hike_3.jpg" # Can be omitted to generate self-correspondences for the first image
+plot_correspondences_interactive: False
+image_a_path: "/media/image1.png" 
+image_b_path: "/media/image2.png" # Can be omitted to generate self-correspondences for the first image
 output_dir: "/media/plibera/results/correspondence"
+display_resolution: 512
+
 
 # Augmentations params for image B
 brightness_factor: 1.0  # Non-negative, 1.0 for no change
@@ -21,3 +22,13 @@ hue_factor: 0.0         # [-0.5, 0.5], 0.0 for no change
 
 gaussian_kernel_size: #13
 gaussian_sigma: #2.0
+
+
+
+# Precision-Recall curves plot
+plot_pr: True
+data_dir: "/media"
+dataset_name: "RUGD_preprocessed"
+pr_resolution: 320
+batch_size: 8
+num_workers: 24

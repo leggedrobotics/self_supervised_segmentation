@@ -11,6 +11,8 @@ import random
 from torch.utils.data import DataLoader, Dataset
 import os
 
+from stego.stego.utils import *
+
 
 
 class UnlabeledImageFolder(Dataset):
@@ -64,38 +66,144 @@ def create_cityscapes_colormap():
               (0, 0, 0)]
     return np.array(colors)
 
-def create_freiburg_forest_colormap():
-    colors = [(0, 0, 0),       # Object
-              (170, 170, 170), # Trail
-              (0, 255, 0),     # Grass
-              (0, 120, 255),   # Sky
-              (102, 102, 51)]  # Vegetation
-    return np.array(colors)
 
-def create_RUGD_colormap():
-    colors = [(0, 0, 0),        # void
-              (108, 64, 20),    # dirt
-              (255, 229, 204),  # sand
-              (0, 102, 0),      # grass
-              (0, 255, 0),      # tree
-              (0, 153, 153),    # pole
-              (0, 128, 255),    # water
-              (0, 0, 255),      # sky
-              (255, 255, 0),    # vehicle
-              (255, 0, 127),    # container/generic-object
-              (64, 64, 64),     # asphalt
-              (255, 128, 0),    # gravel
-              (255, 0, 0),      # building
-              (153, 76, 0),     # mulch
-              (102, 102, 0),    # rock-bed 
-              (102, 0, 0),      # log
-              (0, 255, 128),    # bicycle
-              (204, 153, 255),  # person
-              (102, 0, 204),    # fence
-              (255, 153, 204),  # bush
-              (0, 102, 102),    # sign
-              (153, 204, 255),  # rock
-              (102, 255, 255),  # bridge
-              (101, 101, 11),   # concrete
-              (114, 85, 47)]    # picnic-table
-    return np.array(colors)
+
+class DirectoryDataset(Dataset):
+    def __init__(self, data_dir, dataset_name, image_set, transform, target_transform):
+        super(DirectoryDataset, self).__init__()
+        self.split = image_set
+        self.dataset_name = dataset_name
+        self.dir = os.path.join(data_dir, dataset_name)
+        self.img_dir = os.path.join(self.dir, "imgs", self.split)
+        self.label_dir = os.path.join(self.dir, "labels", self.split)
+
+        self.transform = transform
+        self.target_transform = target_transform
+
+        self.img_files = np.array(sorted(os.listdir(self.img_dir)))
+        assert len(self.img_files) > 0, "Could not find any images in dataset directory {}".format(self.img_dir)
+        if os.path.exists(os.path.join(self.dir, "labels")):
+            self.label_files = np.array(sorted(os.listdir(self.label_dir)))
+            assert len(self.img_files) == len(self.label_files),\
+                "The {} dataset contains a different number of images and labels: {} images and {} labels".format(self.dataset_name, len(self.img_files), len(self.label_files))
+        else:
+            self.label_files = None
+
+    def __getitem__(self, index):
+        image_name = self.img_files[index]
+        img = Image.open(os.path.join(self.img_dir, image_name))
+        if self.label_files is not None:
+            label_name = self.label_files[index]
+            label = Image.open(os.path.join(self.label_dir, label_name))
+        
+        seed = np.random.randint(2147483647)
+        random.seed(seed)
+        torch.manual_seed(seed)
+        img = self.transform(img)
+        if self.label_files is not None:
+            random.seed(seed)
+            torch.manual_seed(seed)
+            label = self.target_transform(label)
+        else:
+            label = torch.zeros(img.shape[1], img.shape[2], dtype=torch.int64) - 1
+
+        mask = (label > 0).to(torch.float32)
+        return img, label, mask
+
+    def __len__(self):
+        return len(self.img_files)
+
+
+
+class ContrastiveSegDataset(Dataset):
+    def __init__(self,
+                 data_dir,
+                 dataset_name,
+                 image_set,
+                 transform,
+                 target_transform,
+                 model_type,
+                 resolution,
+                 aug_geometric_transform=None,
+                 aug_photometric_transform=None,
+                 num_neighbors=5,
+                 mask=False,
+                 pos_labels=False,
+                 pos_images=False,
+                 extra_transform=None,
+                 ):
+        super(ContrastiveSegDataset).__init__()
+        self.num_neighbors = num_neighbors
+        self.image_set = image_set
+        self.dataset_name = dataset_name
+        self.mask = mask
+        self.pos_labels = pos_labels
+        self.pos_images = pos_images
+        self.extra_transform = extra_transform
+        self.aug_geometric_transform = aug_geometric_transform
+        self.aug_photometric_transform = aug_photometric_transform
+
+        self.dataset = DirectoryDataset(data_dir, dataset_name, image_set, transform, target_transform)
+
+        feature_cache_file = get_nn_file_name(data_dir, dataset_name, model_type, image_set, resolution)
+        if pos_labels or pos_images:
+            if not os.path.exists(feature_cache_file):
+                raise ValueError("could not find nn file {} please run precompute_knns".format(feature_cache_file))
+            else:
+                loaded = np.load(feature_cache_file)
+                self.nns = loaded["nns"]
+            assert len(self.dataset) == self.nns.shape[0], "Found different numbers of images in dataset {} and nn file {}".format(dataset_name, feature_cache_file)
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def _set_seed(self, seed):
+        random.seed(seed)  # apply this seed to img tranfsorms
+        torch.manual_seed(seed)  # needed for torchvision 0.7
+
+    def __getitem__(self, ind):
+        pack = self.dataset[ind]
+
+        if self.pos_images or self.pos_labels:
+            ind_pos = self.nns[ind][torch.randint(low=1, high=self.num_neighbors + 1, size=[]).item()]
+            pack_pos = self.dataset[ind_pos]
+
+        seed = np.random.randint(2147483647)  # make a seed with numpy generator
+
+        self._set_seed(seed)
+        coord_entries = torch.meshgrid([torch.linspace(-1, 1, pack[0].shape[1]),
+                                        torch.linspace(-1, 1, pack[0].shape[2])])
+        coord = torch.cat([t.unsqueeze(0) for t in coord_entries], 0)
+
+        if self.extra_transform is not None:
+            extra_trans = self.extra_transform
+        else:
+            extra_trans = lambda i, x: x
+
+        ret = {
+            "ind": ind,
+            "img": extra_trans(ind, pack[0]),
+            "label": extra_trans(ind, pack[1]),
+        }
+
+        if self.pos_images:
+            ret["img_pos"] = extra_trans(ind, pack_pos[0])
+            ret["ind_pos"] = ind_pos
+
+        if self.mask:
+            ret["mask"] = pack[2]
+
+        if self.pos_labels:
+            ret["label_pos"] = extra_trans(ind, pack_pos[1])
+            ret["mask_pos"] = pack_pos[2]
+
+        if self.aug_photometric_transform is not None:
+            img_aug = self.aug_photometric_transform(self.aug_geometric_transform(pack[0]))
+
+            self._set_seed(seed)
+            coord_aug = self.aug_geometric_transform(coord)
+
+            ret["img_aug"] = img_aug
+            ret["coord_aug"] = coord_aug.permute(1, 2, 0)
+
+        return ret

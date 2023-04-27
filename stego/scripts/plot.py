@@ -14,6 +14,7 @@ from matplotlib.colors import ListedColormap
 from PIL import Image
 from torchvision import transforms as T
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from sklearn.metrics import auc, precision_recall_curve, average_precision_score
 
 from stego.stego.stego import *
 
@@ -22,7 +23,7 @@ from stego.stego.stego import *
 class Plotter():
     def __init__(self, cfg):
         self.cfg = cfg
-        self.stego = STEGO(cfg.n_classes).cuda()
+        self.stego = STEGO.load_from_checkpoint(cfg.model_path)
 
     def reset_axes(self, axes):
         axes[0].clear()
@@ -64,7 +65,7 @@ class Plotter():
 
     def plot_figure(self, img_a, img_b, query_point, axes, fig):
         _, heatmap_correspondence = self.get_heatmaps(img_a, img_b, query_point, zero_mean=self.cfg.zero_mean, zero_clamp=self.cfg.zero_clamp)
-        point = ((query_point[0, 0, 0] + 1) / 2 * self.cfg.resolution).cpu()
+        point = ((query_point[0, 0, 0] + 1) / 2 * self.cfg.display_resolution).cpu()
         self.reset_axes(axes)
         axes[0].imshow(prep_for_plot(img_a[0], rescale=False))
         axes[2].imshow(prep_for_plot(img_b[0], rescale=False))
@@ -88,11 +89,11 @@ class Plotter():
 
 
     def plot_correspondences_interactive(self):
-        img_a = load_image_to_tensor(self.cfg.image_a_path, self.cfg.resolution)
+        img_a = load_image_to_tensor(self.cfg.image_a_path, self.cfg.display_resolution)
         image_b_path = self.cfg.image_b_path
         if image_b_path is None:
             image_b_path = self.cfg.image_a_path
-        img_b = load_image_to_tensor(image_b_path, self.cfg.resolution, self.cfg.brightness_factor,
+        img_b = load_image_to_tensor(image_b_path, self.cfg.display_resolution, self.cfg.brightness_factor,
                                      self.cfg.contrast_factor, self.cfg.saturation_factor,
                                      self.cfg.hue_factor, self.cfg.gaussian_sigma, self.cfg.gaussian_kernel_size)
 
@@ -102,18 +103,93 @@ class Plotter():
 
         def onclick(event):
             if event.xdata is not None and event.ydata is not None:
-                x = (event.xdata - self.cfg.resolution/2) / (self.cfg.resolution/2)
-                y = (event.ydata - self.cfg.resolution/2) / (self.cfg.resolution/2)
+                x = (event.xdata - self.cfg.display_resolution/2) / (self.cfg.display_resolution/2)
+                y = (event.ydata - self.cfg.display_resolution/2) / (self.cfg.display_resolution/2)
                 query_point = torch.tensor([[x, y]]).float().reshape(1, 1, 1, 2).cuda()
                 self.plot_figure(img_a, img_b, query_point, axes, fig)
 
         fig.canvas.mpl_connect('button_press_event', onclick)
         query_point = torch.tensor([[0.0, 0.0]]).reshape(1, 1, 1, 2).cuda()
         self.plot_figure(img_a, img_b, query_point, axes, fig)
+
+
+    def get_net_fd(self, feats1, feats2, label1, label2, coords1, coords2):
+        with torch.no_grad():
+            feat_samples1 = sample(feats1, coords1)
+            feat_samples2 = sample(feats2, coords2)
+            label_samples1 = sample(F.one_hot(label1 + 1, self.n_classes + 1)
+                                    .to(torch.float).permute(0, 3, 1, 2), coords1)
+            label_samples2 = sample(F.one_hot(label2 + 1, self.n_classes + 1)
+                                    .to(torch.float).permute(0, 3, 1, 2), coords2)
+            fd = tensor_correlation(norm(feat_samples1), norm(feat_samples2))
+            ld = tensor_correlation(label_samples1, label_samples2)
+        return ld, fd, label_samples1.argmax(1), label_samples2.argmax(1)
     
+    def prep_fd(self, fd):
+        fd -= fd.min()
+        fd /= fd.max()
+        return fd.reshape(-1)
+
+    def generate_pr_plot(self, preds, targets, name):
+        preds = preds.cpu().reshape(-1)
+        preds -= preds.min()
+        preds /= preds.max()
+        targets = targets.to(torch.int64).cpu().reshape(-1)
+        precisions, recalls, _ = precision_recall_curve(targets, preds)
+        average_precision = average_precision_score(targets, preds)
+        plt.plot(recalls, precisions, label="AP={}% {}".format(int(average_precision * 100), name))
+    
+    def plot_pr(self):
+        model = STEGO.load_from_checkpoint(self.cfg.model_path).cuda()
+        self.n_classes = model.n_classes
+        val_loader_crop = "center"
+        val_dataset = ContrastiveSegDataset(
+            data_dir=self.cfg.data_dir,
+            dataset_name=self.cfg.dataset_name,
+            image_set="val",
+            transform=get_transform(self.cfg.pr_resolution, False, val_loader_crop),
+            target_transform=get_transform(self.cfg.pr_resolution, True, val_loader_crop),
+            model_type=model.backbone_name,
+            resolution=self.cfg.pr_resolution,
+            mask=True,
+            pos_images=True,
+            pos_labels=True,
+        )
+        print("Calculating PR curves for {} with model {}".format(self.cfg.dataset_name, self.cfg.model_path))
+        lds = []
+        backbone_fds = []
+        stego_fds = []
+        for data in tqdm(val_dataset):
+            img = torch.unsqueeze(data["img"], dim=0).cuda()
+            label = data["label"].cuda()
+            feats, code = model.get_feats(img)
+            coord_shape = [img.shape[0], model.cfg.feature_samples, model.cfg.feature_samples, 2]
+            coords1 = torch.rand(coord_shape, device=img.device) * 2 - 1
+            coords2 = torch.rand(coord_shape, device=img.device) * 2 - 1
+            ld, stego_fd, _, _ = self.get_net_fd(code, code, label, label, coords1, coords2)
+            ld, backbone_fd, _, _ = self.get_net_fd(feats, feats, label, label, coords1, coords2)
+            lds.append(ld)
+            backbone_fds.append(backbone_fd)
+            stego_fds.append(stego_fd)
+        ld = torch.cat(lds, dim=0)
+        backbone_fd = torch.cat(backbone_fds, dim=0)
+        stego_fd = torch.cat(stego_fds, dim=0)
+        self.generate_pr_plot(self.prep_fd(stego_fd), ld, "STEGO")
+        self.generate_pr_plot(self.prep_fd(backbone_fd), ld, model.backbone_name.upper())
+        plt.xlim([0, 1])
+        plt.ylim([0, 1])
+        plt.legend(fontsize=12)
+        plt.ylabel('Precision', fontsize=16)
+        plt.xlabel('Recall', fontsize=16)
+        plt.tight_layout()
+        plt.show()
+
+
     def plot(self):
         if self.cfg.plot_correspondences_interactive:
             self.plot_correspondences_interactive()
+        if self.cfg.plot_pr:
+            self.plot_pr()
 
 
 

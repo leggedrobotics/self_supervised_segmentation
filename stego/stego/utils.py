@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 from PIL import Image
 import sys
+import os
 
 
 def load_image_to_tensor(img_path, resolution=320, brightness_factor=1.0,
@@ -31,6 +32,10 @@ def load_image_to_tensor(img_path, resolution=320, brightness_factor=1.0,
     preprocess_transform = T.Compose(transforms)
     image_tensor = torch.unsqueeze(preprocess_transform(img), 0)
     return image_tensor
+
+def get_nn_file_name(data_dir, dataset_name, model_type, image_set, resolution):
+    return os.path.join(data_dir, dataset_name, "nns", "nns_{}_{}_{}.npz".format(model_type, image_set, resolution))
+
 
 class UnNormalize(object):
     def __init__(self, mean, std):

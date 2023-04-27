@@ -1,0 +1,9 @@
+data_dir: "/media"
+dataset_name: "RUGD_preprocessed"
+image_sets:
+  - "train"
+  - "val"
+
+resolution: 320
+batch_size: 8
+num_workers: 24
