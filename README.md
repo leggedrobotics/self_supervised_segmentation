@@ -1,3 +1,27 @@
+# Self-Supervised Semantic Segmentation for Wild Visual Navigation
+
+### Dataset preprocessing
+Expected dataset structure:
+```
+DATA_DIR
+|-- PREPROCESSED_DATASET_NAME
+    |-- imgs
+        |-- train
+        |-- val
+    |-- labels
+        |-- train
+        |-- val
+```
+Requirements:
+- All images in `imgs` with 3 channels
+- All labels in `labels` saved as 1-channel masks that indicate the class ID for each pixel
+
+To use a preprocessed dataset with a selected model and at a selected resolution, the `precopmute_knns.py` script needs to be run with the selected parameters and model.
+This will create the nearest neighbors file in a separate subdirectory `nns` of the selected dataset.
+
+---
+---
+
 # STEGO: Unsupervised Semantic Segmentation by Distilling Feature Correspondences
 ### [Project Page](https://mhamilton.net/stego.html) | [Paper](https://arxiv.org/abs/2203.08414) | [Video](https://aka.ms/stego-video) | [ICLR 2022](https://iclr.cc/virtual/2022/poster/6068) 
 
