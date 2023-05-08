@@ -28,7 +28,7 @@ gaussian_sigma: #2.0
 # Precision-Recall curves plot
 plot_pr: True
 data_dir: "/media"
-dataset_name: "RUGD_preprocessed"
+dataset_name: "freiburg_forest_preprocessed"
 pr_resolution: 320
 batch_size: 8
 num_workers: 24

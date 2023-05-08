@@ -1,5 +1,5 @@
 data_dir: "/media"
-dataset_name: "RUGD_preprocessed"
+dataset_name: "freiburg_forest_preprocessed"
 image_sets:
   - "train"
   - "val"
