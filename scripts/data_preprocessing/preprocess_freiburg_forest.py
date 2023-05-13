@@ -51,10 +51,23 @@ OUTPUT_NAME="freiburg_forest_preprocessed"
 
 
 FF_CMAP = np.array([(0, 0, 0),       # Object
-                    (170, 170, 170), # Trail
+                    (170, 170, 170), # Road
                     (0, 255, 0),     # Grass
+                    (102, 102, 51),  # Vegetation
                     (0, 120, 255),   # Sky
-                    (102, 102, 51)]) # Vegetation
+                    (0, 60, 0),      # Tree (separate color present in the dataset, but assigned to class Vegetation in the dataset's official readme)
+                    ])
+
+
+def preprocess_and_copy_label_FF(input_name, output_name, cmap):
+    if os.path.isfile(output_name):
+        return
+    image = Image.open(input_name).convert('RGB')
+    img = np.array(image)
+    img = convert_rgb_label(img, cmap)
+    img[img == 5] = 3 # Class Tree assigned to Vegetation
+    image = Image.fromarray(img)
+    image.save(output_name)
 
 
 def preprocess_samples(input_dir, output_dir, subset, input_subset):
@@ -65,7 +78,7 @@ def preprocess_samples(input_dir, output_dir, subset, input_subset):
         img_path = join(input_dir, input_subset, "rgb", sample_name+"_Clipped.jpg")
         label_path = join(input_dir, input_subset, "GT_color", label_name)
         preprocess_and_copy_image(img_path, join(output_dir, "imgs", subset, sample_name+".jpg"), False)
-        preprocess_and_copy_image(label_path, join(output_dir, "labels", subset, sample_name+".png"), True, True, FF_CMAP)
+        preprocess_and_copy_label_FF(label_path, join(output_dir, "labels", subset, sample_name+".png"), FF_CMAP)
 
 
 def main():

@@ -141,7 +141,7 @@ class Plotter():
     
     def plot_pr(self):
         model = STEGO.load_from_checkpoint(self.cfg.model_path).cuda()
-        self.n_classes = model.n_classes
+        self.n_classes = 256#model.n_classes
         val_loader_crop = "center"
         val_dataset = ContrastiveSegDataset(
             data_dir=self.cfg.data_dir,

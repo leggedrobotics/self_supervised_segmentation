@@ -19,8 +19,9 @@ bi_w: 4
 bi_xy_std: 67
 bi_rgb_std: 3
 
-# Training params
+# Training params (when running train.py they are overriden by scripts/cfg/train_config.yaml)
 lr: 5e-4
+val_n_imgs: 5
 
 # Feature Contrastive params
 zero_clamp: True

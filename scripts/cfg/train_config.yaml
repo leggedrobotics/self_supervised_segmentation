@@ -1,0 +1,25 @@
+data_dir: "/media"
+dataset_name: "RUGD_preprocessed"
+
+checkpoint_dir: "/media/plibera/results/checkpoints"
+model_path: "/media/plibera/stego/models/stego_cocostuff27_vit_base_5.ckpt"
+
+
+resolution: 224
+num_classes: 24
+
+num_workers: 24
+batch_size: 16
+
+scalar_log_freq: 1
+max_steps: 5000
+
+lr: 5e-4
+val_n_imgs: 5
+num_neighbors: 5
+
+
+# WandB
+wandb_project: "stego"
+wandb_name: "RUGD_test"
+wandb_log_model: "all"

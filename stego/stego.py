@@ -173,9 +173,11 @@ class STEGO(pl.LightningModule):
         else:
             self.cfg = cfg
         self.dim = self.cfg.dim
+        self.automatic_optimization = False
         self.n_classes = n_classes
         self.backbone_name = self.cfg.backbone
         self.backbone = get_backbone(self.cfg)
+        self.backbone.eval()
         self.backbone_dim = self.backbone.get_output_feat_dim()
         self.segmentation_head = SegmentationHead(self.backbone_dim, self.dim)
 
@@ -205,8 +207,6 @@ class STEGO(pl.LightningModule):
 
 
     def get_feats(self, img):
-        self.backbone.eval()
-        self.segmentation_head.eval()
         backbone_feats = self.backbone(img)
         return backbone_feats, self.segmentation_head(backbone_feats)
 
@@ -232,6 +232,7 @@ class STEGO(pl.LightningModule):
         net_optim.zero_grad()
         linear_probe_optim.zero_grad()
         cluster_probe_optim.zero_grad()
+        log_args = dict(sync_dist=False, rank_zero_only=True)
 
         with torch.no_grad():
             img = batch["img"]
@@ -252,6 +253,14 @@ class STEGO(pl.LightningModule):
         neg_inter_loss = neg_inter_loss.mean()
         pos_intra_loss = pos_intra_loss.mean()
         pos_inter_loss = pos_inter_loss.mean()
+
+        self.log('loss/pos_intra', pos_intra_loss)
+        self.log('loss/pos_inter', pos_inter_loss)
+        self.log('loss/neg_inter', neg_inter_loss)
+        self.log('cd/pos_intra', pos_intra_cd.mean())
+        self.log('cd/pos_inter', pos_inter_cd.mean())
+        self.log('cd/neg_inter', neg_inter_cd.mean())
+
         loss = (self.cfg.pos_inter_weight * pos_inter_loss +
                     self.cfg.pos_intra_weight * pos_intra_loss +
                     self.cfg.neg_inter_weight * neg_inter_loss)
@@ -266,9 +275,13 @@ class STEGO(pl.LightningModule):
         linear_logits = linear_logits.permute(0, 2, 3, 1).reshape(-1, self.n_classes)
         linear_loss = self.linear_probe_loss_fn(linear_logits[mask], flat_label[mask]).mean()
         loss += linear_loss
+        self.log('loss/linear', linear_loss, **log_args)
 
         cluster_loss, cluster_probs = self.cluster_probe(detached_code, None)
         loss += cluster_loss
+
+        self.log('loss/cluster', cluster_loss, **log_args)
+        self.log('loss/total', loss, **log_args)
 
         self.manual_backward(loss)
         net_optim.step()
@@ -294,11 +307,20 @@ class STEGO(pl.LightningModule):
             cluster_preds = cluster_preds.argmax(1)
             self.cluster_metrics.update(cluster_preds, label)
 
+            linear_metrics = self.linear_metrics.compute()
+            cluster_metrics = self.cluster_metrics.compute()
+
+            self.log('val/linear/mIoU', linear_metrics['test/linear/mIoU'])
+            self.log('val/linear/Accuracy', linear_metrics['test/linear/Accuracy'])
+            self.log('val/cluster/mIoU', cluster_metrics['test/cluster/mIoU'])
+            self.log('val/cluster/Accuracy', cluster_metrics['test/cluster/Accuracy'])
+
+
             return {
-                'img': img[:self.cfg.n_images].detach().cpu(),
-                'linear_preds': linear_preds[:self.cfg.n_images].detach().cpu(),
-                "cluster_preds": cluster_preds[:self.cfg.n_images].detach().cpu(),
-                "label": label[:self.cfg.n_images].detach().cpu()}
+                'img': img[:self.cfg.val_n_imgs].detach().cpu(),
+                'linear_preds': linear_preds[:self.cfg.val_n_imgs].detach().cpu(),
+                "cluster_preds": cluster_preds[:self.cfg.val_n_imgs].detach().cpu(),
+                "label": label[:self.cfg.val_n_imgs].detach().cpu()}
 
     def validation_epoch_end(self, outputs) -> None:
         super().validation_epoch_end(outputs)
