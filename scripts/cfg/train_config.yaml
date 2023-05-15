@@ -1,8 +1,8 @@
 data_dir: "/media"
-dataset_name: "RUGD_preprocessed"
+dataset_name: "RUGD_preprocessed_cropped"
 
 checkpoint_dir: "/media/plibera/results/checkpoints"
-model_path: "/media/plibera/stego/models/stego_cocostuff27_vit_base_5.ckpt"
+model_path: #"/media/plibera/stego/models/stego_cocostuff27_vit_base_5.ckpt"
 
 
 resolution: 224
@@ -13,6 +13,7 @@ batch_size: 16
 
 scalar_log_freq: 1
 max_steps: 5000
+val_check_interval: 250
 
 lr: 5e-4
 val_n_imgs: 5
@@ -21,5 +22,5 @@ num_neighbors: 5
 
 # WandB
 wandb_project: "stego"
-wandb_name: "RUGD_test"
+wandb_name: "RUGD_cropped_test"
 wandb_log_model: "all"

@@ -2,7 +2,7 @@
 backbone: "dino"
 backbone_type: "vit_base"
 patch_size: 8
-dropout_p: 0.0 # Dropout probability on backbone output, clamped to [0,1]. For training, STEGO used 0.1.
+dropout_p: 0.1 # Dropout probability on backbone output, clamped to [0,1]. For training, STEGO used 0.1.
 pretrained_weights: 
 
 # Head
@@ -30,9 +30,9 @@ pointwise: True
 feature_samples: 11
 neg_samples: 5
 
-neg_inter_weight: 0.63
-pos_inter_weight: 0.25
-pos_intra_weight: 0.67
-neg_inter_shift: 0.46
-pos_inter_shift: 0.12
-pos_intra_shift: 0.18
+neg_inter_weight: 0.15
+pos_inter_weight: 1.0
+pos_intra_weight: 0.1
+neg_inter_shift: 1.00
+pos_inter_shift: 0.2
+pos_intra_shift: 0.12

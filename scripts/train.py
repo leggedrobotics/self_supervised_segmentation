@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, Callback
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.utilities.seed import seed_everything
 import torch.multiprocessing
@@ -24,8 +24,10 @@ def my_app(cfg: DictConfig) -> None:
 
     seed_everything(seed=0)
 
-    # model = STEGO(cfg.num_classes).cuda()
-    model = STEGO.load_from_checkpoint(cfg.model_path).cuda()
+    if cfg.model_path is not None:
+        model = STEGO.load_from_checkpoint(cfg.model_path).cuda()
+    else:
+        model = STEGO(cfg.num_classes).cuda()
     model.cfg.lr = cfg.lr
     model.cfg.val_n_imgs = cfg.val_n_imgs
 
@@ -64,13 +66,14 @@ def my_app(cfg: DictConfig) -> None:
         callbacks=[
             ModelCheckpoint(
                 dirpath=cfg.checkpoint_dir,
-                every_n_train_steps=1,
+                every_n_train_steps=400,
                 save_top_k=2,
                 monitor="val/cluster/mIoU",
                 mode="max",
             )
         ],
-        gpus=1
+        gpus=1,
+        val_check_interval=cfg.val_check_interval
     )
     trainer.fit(model, train_loader, val_loader)
 

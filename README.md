@@ -19,6 +19,20 @@ Requirements:
 To use a preprocessed dataset with a selected model and at a selected resolution, the `precopmute_knns.py` script needs to be run with the selected parameters and model.
 This will create the nearest neighbors file in a separate subdirectory `nns` of the selected dataset.
 
+
+### Issues with downloading datasets used by STEGO
+
+The datasets used by the authors of STEGO can be dowloaded with the provided `dowload_stego_datasets.py` script. However, some problems might be encountered with downloading the datasets with wget.
+In case the download fails, try downloading the selected datasets with [azcopy](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10). For example, to download the cocostuff dataset:
+
+```
+azcopy copy https://marhamilresearch4.blob.core.windows.net/stego-public/pytorch_data/cocostuff.zip ./cocostuff.zip
+```
+
+In the case of the cocostuff dataset the authors of STEGO selected a subset of training and validation samples for theirs experiments. Lists of samples can be obtained by downloading the dataset from the link above. Then, a dataset curated according to a selected list can be generated with the `create_curated_dataset.py` preprocessing script.
+
+
+
 ---
 ---
 

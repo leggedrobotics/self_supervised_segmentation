@@ -1,0 +1,10 @@
+data_dir: "/media"
+dataset_name: "cocostuff_curated"
+model_path: "/media/plibera/results/checkpoints/epoch=0-step=1000.ckpt"
+output_root: "/media/plibera/results/eval"
+experiment_name: "cocostuff_val"
+
+resolution: 320
+batch_size: 8
+n_batches: 40
+num_workers: 24

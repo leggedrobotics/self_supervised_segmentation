@@ -224,7 +224,7 @@ class STEGO(pl.LightningModule):
             x = self.crf.dense_crf(single_img, cluster_probs[j]).argmax(0)
             cluster_crf[j] = x
             linear_crf[j] = self.crf.dense_crf(single_img, linear_probs[j]).argmax(0)
-        return cluster_crf.int(), linear_crf.int()
+        return cluster_crf.int().to(self.device), linear_crf.int().to(self.device)
 
 
     def training_step(self, batch, batch_idx):
