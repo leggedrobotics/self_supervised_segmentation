@@ -207,25 +207,37 @@ class STEGO(pl.LightningModule):
         return net_optim, linear_probe_optim, cluster_probe_optim
 
 
-    def get_feats(self, img):
+    def forward(self, img):
         backbone_feats = self.backbone(img)
         return backbone_feats, self.segmentation_head(backbone_feats)
 
-    def forward(self, img):
-        code1 = self.get_feats(img)[1]
-        code2 = self.get_feats(img.flip(dims=[3]))[1]
+    def get_code(self, img):
+        code1 = self.forward(img)[1]
+        code2 = self.forward(img.flip(dims=[3]))[1]
         code = (code1 + code2.flip(dims=[3]))/2
+        return code
+
+    def postprocess(self, code, use_crf=True):
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
-        cluster_probs = self.cluster_probe(code, 2, log_probs=True).cpu()
-        linear_probs = torch.log_softmax(self.linear_probe(code), dim=1).cpu()
-        cluster_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
-        linear_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
-        for j in range(img.shape[0]):
-            single_img = img[j]
-            x = self.crf.dense_crf(single_img, cluster_probs[j]).argmax(0)
-            cluster_crf[j] = x
-            linear_crf[j] = self.crf.dense_crf(single_img, linear_probs[j]).argmax(0)
-        return cluster_crf.int().to(self.device), linear_crf.int().to(self.device)
+        cluster_probs = self.cluster_probe(code, 2, log_probs=True)
+        linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
+        if use_crf:
+            cluster_probs = cluster_probs.cpu()
+            linear_probs = linear_probs.cpu()
+            cluster_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
+            linear_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
+            for j in range(img.shape[0]):
+                single_img = img[j]
+                x = self.crf.dense_crf(single_img, cluster_probs[j]).argmax(0)
+                cluster_crf[j] = x
+                linear_crf[j] = self.crf.dense_crf(single_img, linear_probs[j]).argmax(0)
+            cluster_preds = cluster_crf.int()
+            linear_preds = linear_crf.int()
+        else:
+            linear_preds = linear_probs.argmax(1)
+            cluster_preds = cluster_probs.argmax(1)
+        return cluster_preds.to(self.device), linear_preds.to(self.device)
+
 
 
     def training_step(self, batch, batch_idx):
@@ -240,8 +252,8 @@ class STEGO(pl.LightningModule):
             img_pos = batch["img_pos"]
             label = batch["label"]
 
-        feats, code = self.get_feats(img)
-        feats_pos, code_pos = self.get_feats(img_pos)
+        feats, code = self.forward(img)
+        feats_pos, code_pos = self.forward(img_pos)
 
         (
             pos_intra_loss, pos_intra_cd,
@@ -297,7 +309,7 @@ class STEGO(pl.LightningModule):
         label = batch["label"]
 
         with torch.no_grad():
-            code = self.get_feats(img)[1]
+            code = self.forward(img)[1]
             code = F.interpolate(code, label.shape[-2:], mode='bilinear', align_corners=False)
 
             linear_preds = self.linear_probe(code)

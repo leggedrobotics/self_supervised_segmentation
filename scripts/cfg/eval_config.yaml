@@ -8,3 +8,5 @@ resolution: 320
 batch_size: 8
 n_batches: 40
 num_workers: 24
+
+run_crf: False

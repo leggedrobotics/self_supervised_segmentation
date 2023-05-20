@@ -18,7 +18,7 @@ def get_feats(model, loader):
     all_feats = []
     for pack in tqdm(loader):
         img = pack["img"]
-        feats = F.normalize(model.get_feats(img.cuda())[0].mean([2, 3]), dim=1)
+        feats = F.normalize(model.forward(img.cuda())[0].mean([2, 3]), dim=1)
         all_feats.append(feats.to("cpu", non_blocking=True))
     return torch.cat(all_feats, dim=0).contiguous()
 

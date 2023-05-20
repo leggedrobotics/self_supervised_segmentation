@@ -23,7 +23,7 @@ from stego.stego import *
 class Plotter():
     def __init__(self, cfg):
         self.cfg = cfg
-        self.stego = STEGO.load_from_checkpoint(cfg.model_path)
+        self.stego = STEGO.load_from_checkpoint(cfg.model_path).cuda()
 
     def reset_axes(self, axes):
         axes[0].clear()
@@ -34,8 +34,8 @@ class Plotter():
 
 
     def get_heatmaps(self, img, img_pos, query_points, zero_mean=True, zero_clamp=True):
-        feats1, _ = self.stego.get_feats(img.cuda())
-        feats2, _ = self.stego.get_feats(img_pos.cuda())
+        feats1, _ = self.stego.forward(img.cuda())
+        feats2, _ = self.stego.forward(img_pos.cuda())
 
         sfeats1 = sample(feats1, query_points)
 
@@ -140,7 +140,6 @@ class Plotter():
         plt.plot(recalls, precisions, label="AP={}% {}".format(int(average_precision * 100), name))
     
     def plot_pr(self):
-        model = STEGO.load_from_checkpoint(self.cfg.model_path).cuda()
         self.n_classes = 256#model.n_classes
         val_loader_crop = "center"
         val_dataset = ContrastiveSegDataset(
@@ -149,7 +148,7 @@ class Plotter():
             image_set="val",
             transform=get_transform(self.cfg.pr_resolution, False, val_loader_crop),
             target_transform=get_transform(self.cfg.pr_resolution, True, val_loader_crop),
-            model_type=model.backbone_name,
+            model_type=self.stego.backbone_name,
             resolution=self.cfg.pr_resolution,
             mask=True,
             pos_images=True,
@@ -162,8 +161,8 @@ class Plotter():
         for data in tqdm(val_dataset):
             img = torch.unsqueeze(data["img"], dim=0).cuda()
             label = data["label"].cuda()
-            feats, code = model.get_feats(img)
-            coord_shape = [img.shape[0], model.cfg.feature_samples, model.cfg.feature_samples, 2]
+            feats, code = self.stego.forward(img)
+            coord_shape = [img.shape[0], self.stego.cfg.feature_samples, self.stego.cfg.feature_samples, 2]
             coords1 = torch.rand(coord_shape, device=img.device) * 2 - 1
             coords2 = torch.rand(coord_shape, device=img.device) * 2 - 1
             ld, stego_fd, _, _ = self.get_net_fd(code, code, label, label, coords1, coords2)
@@ -175,7 +174,7 @@ class Plotter():
         backbone_fd = torch.cat(backbone_fds, dim=0)
         stego_fd = torch.cat(stego_fds, dim=0)
         self.generate_pr_plot(self.prep_fd(stego_fd), ld, "STEGO")
-        self.generate_pr_plot(self.prep_fd(backbone_fd), ld, model.backbone_name.upper())
+        self.generate_pr_plot(self.prep_fd(backbone_fd), ld, self.stego.backbone_name.upper())
         plt.xlim([0, 1])
         plt.ylim([0, 1])
         plt.legend(fontsize=12)
