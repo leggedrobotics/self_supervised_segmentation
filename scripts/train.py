@@ -28,8 +28,6 @@ def my_app(cfg: DictConfig) -> None:
         model = STEGO.load_from_checkpoint(cfg.model_path).cuda()
     else:
         model = STEGO(cfg.num_classes).cuda()
-    model.cfg.lr = cfg.lr
-    model.cfg.val_n_imgs = cfg.val_n_imgs
 
     train_dataset = ContrastiveSegDataset(
         data_dir=cfg.data_dir,

@@ -170,6 +170,7 @@ class STEGO(pl.LightningModule):
         if cfg is None:
             with open(os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r") as file:
                 self.cfg = omegaconf.OmegaConf.load(file)
+                cfg = self.cfg
         else:
             self.cfg = cfg
         self.dim = self.cfg.dim

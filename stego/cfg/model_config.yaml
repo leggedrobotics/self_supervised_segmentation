@@ -19,7 +19,7 @@ bi_w: 4
 bi_xy_std: 67
 bi_rgb_std: 3
 
-# Training params (when running train.py they are overriden by scripts/cfg/train_config.yaml)
+# Training params
 lr: 5e-4
 val_n_imgs: 5
 
@@ -31,8 +31,8 @@ feature_samples: 11
 neg_samples: 5
 
 neg_inter_weight: 0.15
-pos_inter_weight: 1.0
+pos_inter_weight: 0.05
 pos_intra_weight: 0.1
-neg_inter_shift: 1.00
+neg_inter_shift: 1.0
 pos_inter_shift: 0.2
 pos_intra_shift: 0.12
