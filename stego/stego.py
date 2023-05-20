@@ -217,13 +217,13 @@ class STEGO(pl.LightningModule):
         code = (code1 + code2.flip(dims=[3]))/2
         return code
 
-    def postprocess(self, code, use_crf=True):
+    def postprocess(self, code, img, use_crf=True):
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         cluster_probs = self.cluster_probe(code, 2, log_probs=True)
         linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
+        cluster_probs = cluster_probs.cpu()
+        linear_probs = linear_probs.cpu()
         if use_crf:
-            cluster_probs = cluster_probs.cpu()
-            linear_probs = linear_probs.cpu()
             cluster_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
             linear_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
             for j in range(img.shape[0]):
@@ -236,7 +236,7 @@ class STEGO(pl.LightningModule):
         else:
             linear_preds = linear_probs.argmax(1)
             cluster_preds = cluster_probs.argmax(1)
-        return cluster_preds.to(self.device), linear_preds.to(self.device)
+        return cluster_preds, linear_preds
 
 
 

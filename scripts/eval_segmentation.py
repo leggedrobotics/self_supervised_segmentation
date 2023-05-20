@@ -43,17 +43,17 @@ def my_app(cfg: DictConfig) -> None:
     model.eval().cuda()
 
     for i, batch in enumerate(tqdm(test_loader)):
-        if i >= cfg.n_batches:
+        if cfg.n_batches is not None and i >= cfg.n_batches:
             break
         with torch.no_grad():
             img = batch["img"].cuda()
             label = batch["label"].cuda()
 
             code = model.get_code(img)
-            cluster_preds, linear_preds = model.postprocess(code, use_crf=cfg.run_crf)
+            cluster_preds, linear_preds = model.postprocess(code=code, img=img, use_crf=cfg.run_crf)
 
-            model.linear_metrics.update(linear_preds, label)
-            model.cluster_metrics.update(cluster_preds, label)
+            model.linear_metrics.update(linear_preds.cuda(), label)
+            model.cluster_metrics.update(cluster_preds.cuda(), label)
         
 
     tb_metrics = {

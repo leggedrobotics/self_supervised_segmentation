@@ -2,12 +2,14 @@ from os.path import join, exists
 import wget
 import os
 
-models_dir = join("..", "models")
+models_dir = "models"
 os.makedirs(models_dir, exist_ok=True)
 model_url_root = "https://marhamilresearch4.blob.core.windows.net/stego-public/models/models/"
-model_names = ["moco_v2_800ep_pretrain.pth.tar",
-               "model_epoch_0720_iter_085000.pth",
-               "picie.pkl"]
+model_names = []
+# Optionally, uncomment to download all original models:
+# model_names = ["moco_v2_800ep_pretrain.pth.tar",
+#                "model_epoch_0720_iter_085000.pth",
+#                "picie.pkl"]
 
 saved_model_url_root = "https://marhamilresearch4.blob.core.windows.net/stego-public/saved_models/"
 saved_model_names = ["cityscapes_vit_base_1.ckpt",

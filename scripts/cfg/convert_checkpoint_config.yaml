@@ -1,5 +1,5 @@
-model_path: "/media/plibera/stego/saved_models/cocostuff27_vit_base_5.ckpt"
-output_path: "/media/plibera/stego/saved_models/stego_cocostuff27_vit_base_5.ckpt"
+model_path: "/cluster/home/plibera/self_supervised_segmentation/models/cocostuff27_vit_base_5.ckpt"
+output_path: "/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5.ckpt"
 
 hydra:
   run:

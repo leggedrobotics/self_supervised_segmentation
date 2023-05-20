@@ -1,5 +1,26 @@
 # Self-Supervised Semantic Segmentation for Wild Visual Navigation
 
+### Download and convert STEGO models
+
+Download STEGO model checkpoints:
+
+```
+python scripts/download_stego_models.py
+```
+
+Convert selected checkpoints to the model structure used by this package.
+Set input and output paths in `scripts/cfg/convert_checkpoint_config.yaml` and run:
+```
+python scripts/convert_original_stego_checkpoint.py
+```
+
+### Running demo segmentation
+To generate segmentation predictions for a selected folder of images:
+- Adjust input and output paths in `scripts/cfg/demo_config.yaml`
+- Run `python scripts/demo_segmentation.py`
+
+This will generate visualizations of unsupervised segmentations in `output_dir/experiment_name/cluster` and visualizations of linear probe segmentations in `output_dir/experiment_name/linear`.
+
 ### Dataset preprocessing
 Expected dataset structure:
 ```

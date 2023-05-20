@@ -37,7 +37,7 @@ def my_app(cfg: DictConfig) -> None:
         with torch.no_grad():
             img = img.cuda()
             code = model.get_code(img)
-            cluster_crf, linear_crf = model.postprocess(code, use_crf=True)
+            cluster_crf, linear_crf = model.postprocess(code=code, img=img, use_crf=cfg.run_crf)
             for j in range(img.shape[0]):
                 new_name = ".".join(name[j].split(".")[:-1]) + ".png"
                 Image.fromarray(cmap[linear_crf[j]].astype(np.uint8)).save(os.path.join(result_dir, "linear", new_name))

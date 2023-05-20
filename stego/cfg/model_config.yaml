@@ -31,7 +31,7 @@ feature_samples: 11
 neg_samples: 5
 
 neg_inter_weight: 0.15
-pos_inter_weight: 0.05
+pos_inter_weight: 1.0
 pos_intra_weight: 0.1
 neg_inter_shift: 1.0
 pos_inter_shift: 0.2

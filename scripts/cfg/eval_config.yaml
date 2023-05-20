@@ -1,12 +1,12 @@
-data_dir: "/media"
-dataset_name: "cocostuff_curated"
-model_path: "/media/plibera/results/checkpoints/epoch=0-step=1000.ckpt"
-output_root: "/media/plibera/results/eval"
-experiment_name: "cocostuff_val"
+data_dir: "/scratch/tmp.17074165.plibera"
+dataset_name: "RUGD_preprocessed_cropped"
+model_path: "/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5.ckpt"
+output_root: "/cluster/home/plibera/outputs/eval"
+experiment_name: "RUGD_val"
 
 resolution: 320
 batch_size: 8
-n_batches: 40
 num_workers: 24
 
+n_batches: 500 # Optionally, specify a number of batches in the shuffled dataset to calculate metrics on to save time
 run_crf: False
