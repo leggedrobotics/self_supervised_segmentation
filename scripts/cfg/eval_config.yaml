@@ -1,12 +1,12 @@
-data_dir: "/scratch/tmp.17074165.plibera"
-dataset_name: "RUGD_preprocessed_cropped"
+data_dir: "/scratch/tmp.17203816.plibera"
+dataset_name: "freiburg_forest_preprocessed_cropped"
 model_path: "/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5.ckpt"
 output_root: "/cluster/home/plibera/outputs/eval"
-experiment_name: "RUGD_val"
+experiment_name: "FF_val"
 
 resolution: 320
 batch_size: 8
 num_workers: 24
 
-n_batches: 500 # Optionally, specify a number of batches in the shuffled dataset to calculate metrics on to save time
+n_batches: 200 # Optionally, specify a number of batches in the shuffled dataset to calculate metrics on to save time
 run_crf: False

@@ -167,7 +167,7 @@ class UnsupervisedMetrics(Metric):
         with torch.no_grad():
             actual = target.reshape(-1)
             preds = preds.reshape(-1)
-            mask = (actual >= 0) & (actual < self.n_classes) & (preds >= 0) & (preds < self.n_classes)
+            mask = (actual >= 0) & (actual < self.n_classes) & (preds >= 0) & (preds < self.n_classes+self.extra_clusters)
             actual = actual[mask]
             preds = preds[mask]
             self.stats += torch.bincount(

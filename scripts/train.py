@@ -29,6 +29,9 @@ def my_app(cfg: DictConfig) -> None:
     else:
         model = STEGO(cfg.num_classes).cuda()
 
+    if cfg.reset_clusters:
+        model.reset_clusters(cfg.num_classes, cfg.extra_clusters)
+
     train_dataset = ContrastiveSegDataset(
         data_dir=cfg.data_dir,
         dataset_name=cfg.dataset_name,

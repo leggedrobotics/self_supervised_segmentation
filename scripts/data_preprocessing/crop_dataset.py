@@ -27,11 +27,11 @@ from torchvision.transforms.functional import five_crop
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR="/media"
-INPUT_NAME="RUGD_preprocessed"
-OUTPUT_NAME="RUGD_preprocessed_cropped"
+DATA_DIR="/scratch/tmp.17179130.plibera"
+INPUT_NAME="freiburg_forest_preprocessed"
+OUTPUT_NAME="freiburg_forest_preprocessed_cropped"
 CROP_RATIO = 0.5
-IMAGE_EXT = ".png"
+IMAGE_EXT = ".jpg"
 
 def save_five_crop(input_name, output_dir, sample_name, file_ext):
     output_names = [join(output_dir, sample_name+"_"+str(i)+file_ext) for i in range(5)]

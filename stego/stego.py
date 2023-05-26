@@ -8,6 +8,9 @@ import pydensecrf.utils as utils
 import torchvision.transforms.functional as VF
 import omegaconf
 import os
+import wandb
+import matplotlib as plt
+import io
 
 from stego.backbones.backbone import *
 from stego.utils import *
@@ -197,13 +200,22 @@ class STEGO(pl.LightningModule):
 
         self.crf = CRF(self.cfg)
 
+        self.cd_hist = torch.zeros(40)
+
         self.save_hyperparameters()
+
+
+    def reset_clusters(self, n_classes, extra_clusters):
+        self.cluster_probe = ClusterLookup(self.dim, n_classes+extra_clusters)
+        self.cluster_metrics = UnsupervisedMetrics(
+            "test/cluster/", n_classes, extra_clusters, True)
+
 
     def configure_optimizers(self):
         main_params = list(self.backbone.parameters()) + list(self.segmentation_head.parameters())
         net_optim = torch.optim.Adam(main_params, lr=self.cfg.lr)
-        linear_probe_optim = torch.optim.Adam(list(self.linear_probe.parameters()), lr=5e-3)
-        cluster_probe_optim = torch.optim.Adam(list(self.cluster_probe.parameters()), lr=5e-3)
+        linear_probe_optim = torch.optim.Adam(list(self.linear_probe.parameters()), lr=self.cfg.linear_lr)
+        cluster_probe_optim = torch.optim.Adam(list(self.cluster_probe.parameters()), lr=self.cfg.cluster_lr)
         return net_optim, linear_probe_optim, cluster_probe_optim
 
 
@@ -266,6 +278,10 @@ class STEGO(pl.LightningModule):
         neg_inter_loss = neg_inter_loss.mean()
         pos_intra_loss = pos_intra_loss.mean()
         pos_inter_loss = pos_inter_loss.mean()
+
+        self.cd_hist = torch.add(self.cd_hist, torch.histogram(pos_intra_cd.cpu(), bins=40, range=(-1, 1))[0])
+        self.cd_hist = torch.add(self.cd_hist, torch.histogram(pos_inter_cd.cpu(), bins=40, range=(-1, 1))[0])
+        self.cd_hist = torch.add(self.cd_hist, torch.histogram(neg_inter_cd.cpu(), bins=40, range=(-1, 1))[0])
 
         self.log('loss/pos_intra', pos_intra_loss)
         self.log('loss/pos_inter', pos_inter_loss)
@@ -340,3 +356,27 @@ class STEGO(pl.LightningModule):
         with torch.no_grad():
             self.linear_metrics.reset()
             self.cluster_metrics.reset()
+
+        for i in range(self.cfg.val_n_imgs):
+            img = outputs[0]["img"][i].cpu().numpy().transpose((1, 2, 0))
+            label = torch.squeeze(outputs[0]["label"][i]).cpu().numpy()
+            cluster = torch.squeeze(outputs[0]["cluster_preds"][i]).cpu().numpy()
+            linear = torch.squeeze(outputs[0]["linear_preds"][i]).cpu().numpy()
+            vis = wandb.Image(img, masks={"label": {"mask_data": label}, "cluster": {"mask_data": cluster}, "linear": {"mask_data": linear}}, caption="Image"+str(i))
+            self.logger.experiment.log({"Image"+str(i):vis})
+
+        self.cd_hist = self.cd_hist/torch.sum(self.cd_hist)
+        x = [-1+i*(2/40)+1/40 for i in range(40)]
+        plt.figure()
+        ax = plt.axes()
+        ax.plot(x, self.cd_hist)
+        ax.set_xlim([-1, 1])
+        ax.set_ylim([0, 0.4])
+
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format='png')
+        hist_img = Image.open(img_buf)
+        hist_vis = wandb.Image(hist_img, caption="Learned Feature Similarity Distribution")
+        self.logger.experiment.log({"Histogram":hist_vis})
+        img_buf.close()
+        self.cd_hist = torch.zeros(40)

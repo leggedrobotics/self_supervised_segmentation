@@ -1,9 +1,9 @@
-data_dir: "/media"
-dataset_name: "RUGD_preprocessed_cropped"
+data_dir: "/scratch/tmp.17179130.plibera"
+dataset_name: "freiburg_forest_preprocessed_cropped"
 image_sets:
   - "train"
   - "val"
 
-resolution: 224
+resolution: 320
 batch_size: 8
 num_workers: 24
