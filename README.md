@@ -1,5 +1,9 @@
 # Self-Supervised Semantic Segmentation for Wild Visual Navigation
 
+## Setup
+- Conda setup
+- pip install -e .
+
 ### Download and convert STEGO models
 
 Download STEGO model checkpoints:

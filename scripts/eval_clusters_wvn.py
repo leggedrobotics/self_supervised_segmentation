@@ -11,6 +11,8 @@ from tqdm import tqdm
 import matplotlib as plt
 from fast_slic import Slic
 import kornia
+from pytictoc import TicToc
+import time
 
 from stego.utils import *
 from stego.stego import STEGO
@@ -23,6 +25,12 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 def my_app(cfg: DictConfig) -> None:
     result_dir = os.path.join(cfg.output_root, cfg.experiment_name)
 
+    plot_dir=None
+    if cfg.save_plots:
+        plot_dir = join(result_dir, "plots")
+        plt.switch_backend('agg')
+
+    os.makedirs(plot_dir, exist_ok=True)
     if cfg.save_vis:
         os.makedirs(join(result_dir, "img"), exist_ok=True)
         os.makedirs(join(result_dir, "label"), exist_ok=True)
@@ -58,9 +66,11 @@ def my_app(cfg: DictConfig) -> None:
     for model in models:
         model.eval().cuda()
 
-    model_metrics = [WVNMetrics("STEGO_"+str(i)+"/", i, 768, 70) for i in cfg.stego_n_clusters]
-    slic_metrics = [WVNMetrics("SLIC_"+str(i)+"/", i, 768, 70) for i in cfg.slic_n_clusters]
+    model_metrics = [WVNMetrics("STEGO_"+str(i), i, 768, 70, save_plots=True, output_dir=plot_dir) for i in cfg.stego_n_clusters]
+    slic_metrics = [WVNMetrics("SLIC_"+str(i), i, 768, 70, save_plots=True, output_dir=plot_dir) for i in cfg.slic_n_clusters]
 
+    t = TicToc()
+    feature_times = []
     for i, batch in enumerate(tqdm(test_loader)):
         if cfg.n_imgs is not None and i >= cfg.n_imgs:
             break
@@ -76,13 +86,14 @@ def my_app(cfg: DictConfig) -> None:
 
             features = None
             code = None
-            if len(models) > 0:
-                features = models[0](batch["img"].cuda())[0]
-                code = models[0].get_code(batch["img"].cuda())
 
             for model_index, model in enumerate(models):
+                t.tic()
+                features, code = model(batch["img"].cuda())
+                feature_times.append(t.tocvalue(restart=True))
                 clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf=cfg.run_crf)
-                model_metrics[model_index].update(clusters.cuda(), label, features, code)
+                time_val = t.tocvalue()
+                model_metrics[model_index].update(clusters.cuda(), label, features, code, time_val)
                 if cfg.save_vis:
                     n_clusters = cfg.stego_n_clusters[model_index]
                     image = Image.fromarray((clusters.squeeze().numpy()*(255/n_clusters)).astype(np.uint8))
@@ -90,25 +101,39 @@ def my_app(cfg: DictConfig) -> None:
 
             for model_index, model in enumerate(slic_models):
                 img_np = kornia.utils.tensor_to_image(unnorm(img).cpu())
+                t.tic()
                 clusters = model.iterate(np.uint8(np.ascontiguousarray(img_np) * 255))
-                slic_metrics[model_index].update(torch.from_numpy(clusters), label.cpu(), features, code)
+                time_val = t.tocvalue()
+                slic_metrics[model_index].update(torch.from_numpy(clusters), label.cpu(), features, code, time_val)
                 if cfg.save_vis:
                     n_clusters = cfg.slic_n_clusters[model_index]
                     image = Image.fromarray((clusters*(255/n_clusters)).astype(np.uint8))
                     image.save(join(result_dir, "slic_"+str(n_clusters), str(i)+".png"))
                     
+    feature_times_np = np.array(feature_times)
+    print("Feature extraction time:  Mean: {} Var: {}".format(np.mean(feature_times_np), np.var(feature_times_np)))
+
+    model_values = []
     for metric in model_metrics:
-        tb_metrics = {
-            **metric.compute(),
-        }
-        print(tb_metrics)
+        results, values = metric.compute()
+        print(results)
+        model_values.append(values)
 
+    slic_values = []
     for metric in slic_metrics:
-        tb_metrics = {
-            **metric.compute(),
-        }
-        print(tb_metrics)
+        results, values = metric.compute()
+        print(results)
+        slic_values.append(values)
 
+    time_now = int(time.time())
+    for metric in ["Avg_clusters", "Feature_var", "Code_var", "Time"]:
+        metric_stego_values = [values[metric] for values in model_values]
+        metric_stego_names = ["STEGO_"+str(i) for i in cfg.stego_n_clusters]
+        plot_distributions(metric_stego_values, 100, metric_stego_names, metric, os.path.join(plot_dir, "Comparison_"+metric+"_STEGO_"+str(time_now)+".png"))
+        metric_slic_values = [values[metric] for values in slic_values]
+        metric_slic_names = ["SLIC_"+str(i) for i in cfg.slic_n_clusters]
+        plot_distributions(metric_slic_values, 100, metric_slic_names, metric, os.path.join(plot_dir, "Comparison_"+metric+"_SLIC_"+str(time_now)+".png"))
+        plot_distributions(metric_stego_values+metric_slic_values, 100, metric_stego_names+metric_slic_names, metric, os.path.join(plot_dir, "Comparison_"+metric+"_all_"+str(time_now)+".png"))
     
 
 if __name__ == "__main__":

@@ -147,6 +147,22 @@ def prep_for_plot(img, rescale=True, resize=None):
     return plot_img
 
 
+def plot_distributions(value_lists, n_bins, names, x_name, output_file):
+    plt.clf()
+    plt.xlabel(x_name)
+    plt.ylabel('Frequency')
+    plt.title('Distribution of {}'.format(x_name))
+    for i, values in enumerate(value_lists):
+        if len(values) == 0:
+            continue
+        values_np = np.array(values)
+        hist, bin_edges = np.histogram(values_np, bins=np.linspace(np.min(values_np), np.max(values_np), num=n_bins+1), density=True)
+        x = (bin_edges[:-1] + bin_edges[1:]) / 2
+        plt.plot(x, hist, label=names[i])
+    plt.legend()
+    plt.savefig(output_file)
+
+
 class UnsupervisedMetrics(Metric):
     def __init__(self, prefix: str, n_classes: int, extra_clusters: int, compute_hungarian: bool,
                  dist_sync_on_step=True):
@@ -222,31 +238,34 @@ class UnsupervisedMetrics(Metric):
 
 
 class WVNMetrics(Metric):
-    def __init__(self, prefix: str, n_clusters: int, feature_dim: int, code_dim: int, dist_sync_on_step=True):
+    def __init__(self, prefix: str, n_clusters: int, feature_dim: int, code_dim: int, dist_sync_on_step=True, save_plots=False, output_dir=None):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.prefix = prefix
         self.n_clusters = n_clusters
+        self.output_dir = None
+        if save_plots:
+            self.output_dir = output_dir
         # TN, FP, FN, TP for the traversable class (1)
         self.add_state("stats", default=torch.zeros(4, dtype=torch.int64), dist_reduce_fx="sum")
-        self.add_state("feature_var", default=torch.zeros(1), dist_reduce_fx="sum")
-        self.add_state("code_var", default=torch.zeros(1), dist_reduce_fx="sum")
-        self.add_state("avg_n_clusters", default=torch.zeros(1), dist_reduce_fx="sum")
-        self.add_state("n_samples", default=torch.zeros(1), dist_reduce_fx="sum")
+        self.add_state("feature_var", default=[], dist_reduce_fx="cat")
+        self.add_state("code_var", default=[], dist_reduce_fx="cat")
+        self.add_state("avg_n_clusters", default=[], dist_reduce_fx="cat")
+        self.add_state("time", default=[], dist_reduce_fx="cat")
 
-    def update(self, clusters: torch.Tensor, target: torch.Tensor, features: torch.Tensor, code: torch.Tensor):
+    def update(self, clusters: torch.Tensor, target: torch.Tensor, features: torch.Tensor, code: torch.Tensor, time: float):
         with torch.no_grad():
             actual = target.reshape(-1)
             pred_clusters = clusters.reshape(-1)
             preds = self.assign_pred_to_clusters(pred_clusters, actual)
             self.stats += torch.bincount(2*actual+preds, minlength=4).to(self.stats.device)
-            self.n_samples += 1
             cluster_count = torch.unique(pred_clusters).size(0)
-            self.avg_n_clusters += cluster_count
+            self.avg_n_clusters.append(cluster_count)
+            self.time.append(time)
             if features is not None:
-                self.feature_var += self.update_variance(clusters, features)
+                self.feature_var.extend(self.update_variance(clusters, features))
             if code is not None:
-                self.code_var += self.update_variance(clusters, code)
+                self.code_var.extend(self.update_variance(clusters, code))
                 
 
     def update_variance(self, clusters: torch.Tensor, features: torch.Tensor):
@@ -258,9 +277,8 @@ class WVNMetrics(Metric):
                 mask = mask.unsqueeze(0)
             cluster_features = upsampled_features[mask].reshape(-1, upsampled_features.shape[-1])
             if cluster_features.shape[0] > 1:
-                mean_feature_vars.append(torch.mean(torch.var(cluster_features, dim=0)))
-        vars = torch.Tensor(mean_feature_vars)
-        return torch.mean(vars)
+                mean_feature_vars.append(torch.mean(torch.var(cluster_features, dim=0)).item())
+        return mean_feature_vars
 
     def assign_pred_to_clusters(self, clusters: torch.Tensor, target: torch.Tensor):
         counts = torch.zeros(2, self.n_clusters, dtype=torch.int64)
@@ -270,6 +288,18 @@ class WVNMetrics(Metric):
         cluster_pred = torch.where(counts[0] > counts[1], 0, 1)
         pred = cluster_pred[clusters.long()]
         return pred
+    
+    def compute_list_metric(self, metric_name, values, metric_dict):
+        if len(values) == 0:
+            return
+        values_np = np.array(values)
+        mean = np.mean(values_np)
+        var = np.var(values_np)
+        metric_dict[self.prefix+"/"+metric_name+"/Mean"] = mean
+        metric_dict[self.prefix+"/"+metric_name+"/Var"] = var
+        if self.output_dir is not None:
+            plot_distributions([values], 100, [self.prefix], metric_name, os.path.join(self.output_dir, self.prefix+"_"+metric_name+'.png'))
+
 
     def compute(self):
         tn = self.stats[0]
@@ -280,14 +310,16 @@ class WVNMetrics(Metric):
         iou = tp / (tp + fp + fn)
         acc = (tp+tn) / (tp+tn+fp+fn)
 
-        avg_clusters = self.avg_n_clusters / self.n_samples
+        metric_dict = {self.prefix + "/IoU": iou.item(), self.prefix + "/Accuracy": acc.item()}
 
-        feature_var = self.feature_var / self.n_samples
-        code_var = self.code_var / self.n_samples
+        self.compute_list_metric("Avg_clusters", self.avg_n_clusters, metric_dict)
+        self.compute_list_metric("Feature_var", self.feature_var, metric_dict)
+        self.compute_list_metric("Code_var", self.code_var, metric_dict)
+        self.compute_list_metric("Time", self.time, metric_dict)
 
-        metric_dict = {self.prefix + "IoU": iou.item(), self.prefix + "Accuracy": acc.item(), self.prefix+"Avg_clusters": avg_clusters.item(),
-                       self.prefix+"Feature_var": feature_var.item(), self.prefix+"Code_var": code_var.item()}
-        return {k: v for k, v in metric_dict.items()}
+        values_dict = {"Avg_clusters": self.avg_n_clusters, "Feature_var": self.feature_var, "Code_var": self.code_var, "Time": self.time}
+
+        return metric_dict, values_dict
 
 
 def flexible_collate(batch):
