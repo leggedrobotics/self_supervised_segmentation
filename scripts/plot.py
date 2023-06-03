@@ -3,6 +3,7 @@ from os.path import join
 import hydra
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import pickle
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -23,7 +24,10 @@ from stego.stego import *
 class Plotter():
     def __init__(self, cfg):
         self.cfg = cfg
-        self.stego = STEGO.load_from_checkpoint(cfg.model_path).cuda()
+        if cfg.model_path is not None:
+            self.stego = STEGO.load_from_checkpoint(cfg.model_path).cuda()
+        else:
+            self.stego = STEGO(1).cuda()
 
     def reset_axes(self, axes):
         axes[0].clear()
@@ -137,6 +141,9 @@ class Plotter():
         targets = targets.to(torch.int64).cpu().reshape(-1)
         precisions, recalls, _ = precision_recall_curve(targets, preds)
         average_precision = average_precision_score(targets, preds)
+        data = {"precisions": precisions, "recalls": recalls, "average_precision": average_precision, "name": name}
+        with open(join(self.cfg.pr_output_data_dir, self.cfg.dataset_name+"_"+self.stego.full_backbone_name+"_"+str(self.cfg.pr_resolution)+".pkl"), 'wb') as handle:
+            pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         plt.plot(recalls, precisions, label="AP={}% {}".format(int(average_precision * 100), name))
     
     def plot_pr(self):
@@ -154,33 +161,41 @@ class Plotter():
             pos_images=True,
             pos_labels=True,
         )
-        print("Calculating PR curves for {} with model {}".format(self.cfg.dataset_name, self.cfg.model_path))
-        lds = []
-        backbone_fds = []
-        stego_fds = []
-        for data in tqdm(val_dataset):
-            img = torch.unsqueeze(data["img"], dim=0).cuda()
-            label = data["label"].cuda()
-            feats, code = self.stego.forward(img)
-            coord_shape = [img.shape[0], self.stego.cfg.feature_samples, self.stego.cfg.feature_samples, 2]
-            coords1 = torch.rand(coord_shape, device=img.device) * 2 - 1
-            coords2 = torch.rand(coord_shape, device=img.device) * 2 - 1
-            ld, stego_fd, _, _ = self.get_net_fd(code, code, label, label, coords1, coords2)
-            ld, backbone_fd, _, _ = self.get_net_fd(feats, feats, label, label, coords1, coords2)
-            lds.append(ld)
-            backbone_fds.append(backbone_fd)
-            stego_fds.append(stego_fd)
-        ld = torch.cat(lds, dim=0)
-        backbone_fd = torch.cat(backbone_fds, dim=0)
-        stego_fd = torch.cat(stego_fds, dim=0)
-        self.generate_pr_plot(self.prep_fd(stego_fd), ld, "STEGO")
-        self.generate_pr_plot(self.prep_fd(backbone_fd), ld, self.stego.backbone_name.upper())
+        if self.cfg.plot_stego_pr or self.cfg.plot_backbone_pr:
+            print("Calculating PR curves for {} with model {}".format(self.cfg.dataset_name, self.cfg.model_path))
+            lds = []
+            backbone_fds = []
+            stego_fds = []
+            for data in tqdm(val_dataset):
+                img = torch.unsqueeze(data["img"], dim=0).cuda()
+                label = data["label"].cuda()
+                feats, code = self.stego.forward(img)
+                coord_shape = [img.shape[0], self.stego.cfg.feature_samples, self.stego.cfg.feature_samples, 2]
+                coords1 = torch.rand(coord_shape, device=img.device) * 2 - 1
+                coords2 = torch.rand(coord_shape, device=img.device) * 2 - 1
+                ld, stego_fd, _, _ = self.get_net_fd(code, code, label, label, coords1, coords2)
+                ld, backbone_fd, _, _ = self.get_net_fd(feats, feats, label, label, coords1, coords2)
+                lds.append(ld)
+                backbone_fds.append(backbone_fd)
+                stego_fds.append(stego_fd)
+            ld = torch.cat(lds, dim=0)
+            backbone_fd = torch.cat(backbone_fds, dim=0)
+            stego_fd = torch.cat(stego_fds, dim=0)
+            if self.cfg.plot_stego_pr:
+                self.generate_pr_plot(self.prep_fd(stego_fd), ld, "STEGO")
+            if self.cfg.plot_backbone_pr:
+                self.generate_pr_plot(self.prep_fd(backbone_fd), ld, self.stego.full_backbone_name)
+        for filename in self.cfg.additional_pr_curves:
+            with open(join(self.cfg.pr_output_data_dir, filename), 'rb') as handle:
+                data = pickle.load(handle)
+                plt.plot(data["recalls"], data["precisions"], label="AP={}% {}".format(int(data["average_precision"] * 100), data["name"]))
         plt.xlim([0, 1])
         plt.ylim([0, 1])
         plt.legend(fontsize=12)
         plt.ylabel('Precision', fontsize=16)
         plt.xlabel('Recall', fontsize=16)
         plt.tight_layout()
+        plt.savefig(join(self.cfg.pr_output_dir, self.cfg.dataset_name+"_"+self.stego.full_backbone_name+".png"))
         plt.show()
 
 

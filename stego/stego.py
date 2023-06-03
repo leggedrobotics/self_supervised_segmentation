@@ -181,6 +181,7 @@ class STEGO(pl.LightningModule):
         self.n_classes = n_classes
         self.backbone_name = self.cfg.backbone
         self.backbone = get_backbone(self.cfg)
+        self.full_backbone_name = self.backbone.get_backbone_name()
         self.backbone.eval()
         self.backbone_dim = self.backbone.get_output_feat_dim()
         self.segmentation_head = SegmentationHead(self.backbone_dim, self.dim)

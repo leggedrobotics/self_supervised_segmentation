@@ -36,4 +36,5 @@ dependencies:
   - pydensecrf
   - setuptools==59.5.0
   - pyDeprecate==0.3.1
+  - fast_slic
 name: stego

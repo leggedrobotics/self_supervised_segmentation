@@ -27,9 +27,9 @@ from torchvision.transforms.functional import five_crop
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR="/scratch/tmp.17179130.plibera"
-INPUT_NAME="freiburg_forest_preprocessed"
-OUTPUT_NAME="freiburg_forest_preprocessed_cropped"
+DATA_DIR="/scratch/tmp.17524104.plibera"
+INPUT_NAME="cocostuff_curated"
+OUTPUT_NAME="cocostuff_curated_cropped"
 CROP_RATIO = 0.5
 IMAGE_EXT = ".jpg"
 

@@ -12,12 +12,12 @@
 # Expected input structure:
 # DATA_DIR
 # |-- INPUT_NAME
-#     |-- imgs
-#         |-- train
-#         |-- val
-#     |-- labels
-#         |-- train
-#         |-- val
+#     |-- images
+#         |-- train2017
+#         |-- val2017
+#     |-- annotations
+#         |-- train2017
+#         |-- val2017
 #
 # Output structure after preprocessing:
 # DATA_DIR
@@ -39,7 +39,7 @@ from tqdm import tqdm
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR="/media"
+DATA_DIR="/scratch/tmp.17524104.plibera"
 INPUT_NAME="cocostuff"
 OUTPUT_NAME="cocostuff_preprocessed"
 
@@ -86,11 +86,11 @@ def preprocess_and_copy_image_cocostuff(input_name, output_name):
 
 def preprocess_samples(input_dir, output_dir, subset, input_subset):
     print("Processing subset {}".format(subset))
-    label_names = os.listdir(join(input_dir, "labels", input_subset))
+    label_names = os.listdir(join(input_dir, "annotations", input_subset))
     for label_name in tqdm(label_names):
         sample_name = label_name.split(".")[0]
-        img_path = join(input_dir, "imgs", input_subset, sample_name+".jpg")
-        label_path = join(input_dir, "labels", input_subset, label_name)
+        img_path = join(input_dir, "images", input_subset, sample_name+".jpg")
+        label_path = join(input_dir, "annotations", input_subset, label_name)
         preprocess_and_copy_image_cocostuff(img_path, join(output_dir, "imgs", subset, sample_name+".jpg"))
         preprocess_and_copy_label_cocostuff(label_path, join(output_dir, "labels", subset, sample_name+".png"))
 
@@ -99,8 +99,8 @@ def main():
     input_dir = join(DATA_DIR, INPUT_NAME)
     output_dir = join(DATA_DIR, OUTPUT_NAME)
     create_dataset_structure(output_dir)
-    preprocess_samples(input_dir, output_dir, "train", "train")
-    preprocess_samples(input_dir, output_dir, "val", "val")
+    preprocess_samples(input_dir, output_dir, "train", "train2017")
+    preprocess_samples(input_dir, output_dir, "val", "val2017")
 
 
 if __name__ == "__main__":

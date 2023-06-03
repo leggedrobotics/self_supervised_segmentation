@@ -36,7 +36,7 @@ def my_app(cfg: DictConfig) -> None:
         resolution=cfg.resolution
     )
 
-    test_loader = DataLoader(test_dataset, cfg.batch_size * 2,
+    test_loader = DataLoader(test_dataset, cfg.batch_size,
                             shuffle=True, num_workers=cfg.num_workers,
                             pin_memory=True, collate_fn=flexible_collate)
 

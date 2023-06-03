@@ -64,15 +64,15 @@ def my_app(cfg: DictConfig) -> None:
         logger=wandb_logger,
         max_steps=cfg.max_steps,
         default_root_dir=cfg.checkpoint_dir,
-        callbacks=[
-            ModelCheckpoint(
-                dirpath=cfg.checkpoint_dir,
-                every_n_train_steps=400,
-                save_top_k=2,
-                monitor="val/cluster/mIoU",
-                mode="max",
-            )
-        ],
+        # callbacks=[
+        #     ModelCheckpoint(
+        #         dirpath=cfg.checkpoint_dir,
+        #         every_n_train_steps=400,
+        #         save_top_k=2,
+        #         monitor="val/cluster/mIoU",
+        #         mode="max",
+        #     )
+        # ],
         gpus=1,
         val_check_interval=cfg.val_check_interval
     )

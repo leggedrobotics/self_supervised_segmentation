@@ -45,7 +45,7 @@ from tqdm import tqdm
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR="/scratch/tmp.17179130.plibera"
+DATA_DIR="/scratch/tmp.17569824.plibera"
 INPUT_NAME="freiburg_forest_annotated"
 OUTPUT_NAME="freiburg_forest_preprocessed"
 

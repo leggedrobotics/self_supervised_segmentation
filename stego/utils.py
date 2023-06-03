@@ -221,6 +221,75 @@ class UnsupervisedMetrics(Metric):
         return {k: 100 * v for k, v in metric_dict.items()}
 
 
+class WVNMetrics(Metric):
+    def __init__(self, prefix: str, n_clusters: int, feature_dim: int, code_dim: int, dist_sync_on_step=True):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.prefix = prefix
+        self.n_clusters = n_clusters
+        # TN, FP, FN, TP for the traversable class (1)
+        self.add_state("stats", default=torch.zeros(4, dtype=torch.int64), dist_reduce_fx="sum")
+        self.add_state("feature_var", default=torch.zeros(1), dist_reduce_fx="sum")
+        self.add_state("code_var", default=torch.zeros(1), dist_reduce_fx="sum")
+        self.add_state("avg_n_clusters", default=torch.zeros(1), dist_reduce_fx="sum")
+        self.add_state("n_samples", default=torch.zeros(1), dist_reduce_fx="sum")
+
+    def update(self, clusters: torch.Tensor, target: torch.Tensor, features: torch.Tensor, code: torch.Tensor):
+        with torch.no_grad():
+            actual = target.reshape(-1)
+            pred_clusters = clusters.reshape(-1)
+            preds = self.assign_pred_to_clusters(pred_clusters, actual)
+            self.stats += torch.bincount(2*actual+preds, minlength=4).to(self.stats.device)
+            self.n_samples += 1
+            cluster_count = torch.unique(pred_clusters).size(0)
+            self.avg_n_clusters += cluster_count
+            if features is not None:
+                self.feature_var += self.update_variance(clusters, features)
+            if code is not None:
+                self.code_var += self.update_variance(clusters, code)
+                
+
+    def update_variance(self, clusters: torch.Tensor, features: torch.Tensor):
+        upsampled_features = F.interpolate(features, clusters.shape[-2:], mode='bilinear', align_corners=False).permute(0, 2, 3, 1)
+        mean_feature_vars = []
+        for i in range(self.n_clusters):
+            mask = clusters == i
+            if mask.shape[0] != 1:
+                mask = mask.unsqueeze(0)
+            cluster_features = upsampled_features[mask].reshape(-1, upsampled_features.shape[-1])
+            if cluster_features.shape[0] > 1:
+                mean_feature_vars.append(torch.mean(torch.var(cluster_features, dim=0)))
+        vars = torch.Tensor(mean_feature_vars)
+        return torch.mean(vars)
+
+    def assign_pred_to_clusters(self, clusters: torch.Tensor, target: torch.Tensor):
+        counts = torch.zeros(2, self.n_clusters, dtype=torch.int64)
+        for i in range(2):
+            mask = target == i
+            counts[i] = torch.bincount(clusters[mask], minlength=self.n_clusters)
+        cluster_pred = torch.where(counts[0] > counts[1], 0, 1)
+        pred = cluster_pred[clusters.long()]
+        return pred
+
+    def compute(self):
+        tn = self.stats[0]
+        fp = self.stats[1]
+        fn = self.stats[2]
+        tp = self.stats[3]
+
+        iou = tp / (tp + fp + fn)
+        acc = (tp+tn) / (tp+tn+fp+fn)
+
+        avg_clusters = self.avg_n_clusters / self.n_samples
+
+        feature_var = self.feature_var / self.n_samples
+        code_var = self.code_var / self.n_samples
+
+        metric_dict = {self.prefix + "IoU": iou.item(), self.prefix + "Accuracy": acc.item(), self.prefix+"Avg_clusters": avg_clusters.item(),
+                       self.prefix+"Feature_var": feature_var.item(), self.prefix+"Code_var": code_var.item()}
+        return {k: v for k, v in metric_dict.items()}
+
+
 def flexible_collate(batch):
     r"""Puts each data field into a tensor with outer dimension batch size"""
 

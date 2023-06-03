@@ -26,12 +26,12 @@ from tqdm import tqdm
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR="/media"
+DATA_DIR="/scratch/tmp.17524104.plibera"
 INPUT_NAME="cocostuff_preprocessed"
 OUTPUT_NAME="cocostuff_curated"
 
-TRAIN_SAMPLES_FILE="/media/datasets/cocostuff/curated/train2017/Coco164kFull_Stuff_Coarse.txt"
-VAL_SAMPLES_FILE="/media/datasets/cocostuff/curated/val2017/Coco164kFull_Stuff_Coarse.txt"
+TRAIN_SAMPLES_FILE="/scratch/tmp.17524104.plibera/cocostuff/curated/train2017/Coco164kFull_Stuff_Coarse.txt"
+VAL_SAMPLES_FILE="/scratch/tmp.17524104.plibera/cocostuff/curated/val2017/Coco164kFull_Stuff_Coarse.txt"
 
 
 def preprocess_samples(input_dir, output_dir, subset, input_subset, sample_file):
