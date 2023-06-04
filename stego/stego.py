@@ -11,6 +11,7 @@ import os
 import wandb
 import matplotlib as plt
 import io
+from sklearn.cluster import KMeans
 
 from stego.backbones.backbone import *
 from stego.utils import *
@@ -230,9 +231,19 @@ class STEGO(pl.LightningModule):
         code = (code1 + code2.flip(dims=[3]))/2
         return code
 
-    def postprocess(self, code, img, use_crf=True):
+    def postprocess(self, code, img, use_crf=True, image_clustering=False, n_image_clusters=0):
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
-        cluster_probs = self.cluster_probe(code, 2, log_probs=True)
+        if image_clustering:
+            cluster_probs = torch.empty((code.shape[0], n_image_clusters, code.shape[2], code.shape[3]))
+            for j in range(code.shape[0]):
+                single_code = code[j]
+                normed_code = F.normalize(single_code, dim=0).permute(1, 2, 0)
+                kmeans = KMeans(n_clusters=n_image_clusters, max_iter=100, tol=0.01, random_state=0).fit(normed_code.view(-1, normed_code.shape[-1]).cpu().numpy())
+                normed_centers = F.normalize(torch.from_numpy(kmeans.cluster_centers_), dim=1).cuda()
+                inner_products = torch.einsum("hwc,nc->nhw", normed_code, normed_centers)
+                cluster_probs[j] = nn.functional.softmax(inner_products * 2, dim=0)
+        else:
+            cluster_probs = self.cluster_probe(code, 2, log_probs=True)
         linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
         cluster_probs = cluster_probs.cpu()
         linear_probs = linear_probs.cpu()
