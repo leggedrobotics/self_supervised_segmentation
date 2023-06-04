@@ -148,20 +148,20 @@ class Plotter():
     
     def plot_pr(self):
         self.n_classes = 256#model.n_classes
-        val_loader_crop = "center"
-        val_dataset = ContrastiveSegDataset(
-            data_dir=self.cfg.data_dir,
-            dataset_name=self.cfg.dataset_name,
-            image_set="val",
-            transform=get_transform(self.cfg.pr_resolution, False, val_loader_crop),
-            target_transform=get_transform(self.cfg.pr_resolution, True, val_loader_crop),
-            model_type=self.stego.backbone_name,
-            resolution=self.cfg.pr_resolution,
-            mask=True,
-            pos_images=True,
-            pos_labels=True,
-        )
         if self.cfg.plot_stego_pr or self.cfg.plot_backbone_pr:
+            val_loader_crop = "center"
+            val_dataset = ContrastiveSegDataset(
+                data_dir=self.cfg.data_dir,
+                dataset_name=self.cfg.dataset_name,
+                image_set="val",
+                transform=get_transform(self.cfg.pr_resolution, False, val_loader_crop),
+                target_transform=get_transform(self.cfg.pr_resolution, True, val_loader_crop),
+                model_type=self.stego.backbone_name,
+                resolution=self.cfg.pr_resolution,
+                mask=True,
+                pos_images=True,
+                pos_labels=True,
+            )
             print("Calculating PR curves for {} with model {}".format(self.cfg.dataset_name, self.cfg.model_path))
             lds = []
             backbone_fds = []
@@ -203,6 +203,7 @@ class Plotter():
         if self.cfg.plot_correspondences_interactive:
             self.plot_correspondences_interactive()
         if self.cfg.plot_pr:
+            plt.switch_backend('agg')
             self.plot_pr()
 
 

@@ -105,7 +105,7 @@ class DirectoryDataset(Dataset):
             torch.manual_seed(seed)
             label = self.target_transform(label)
         else:
-            label = torch.zeros(img.shape[1], img.shape[2], dtype=torch.int64) - 1
+            label = torch.zeros(img.shape[1], img.shape[2], dtype=torch.int64)
 
         mask = (label > 0).to(torch.float32)
         return img, label, mask
