@@ -1,20 +1,18 @@
 data_dir: "/cluster/scratch/plibera"
-dataset_name: "robot_images"
+dataset_name: "freiburg_forest_preprocessed"
 
 # Paths tp stego models with given numbers of clusters. The models should have the same backbone and segmentation head weights (only differ in the clustering step)
-model_paths: ["/cluster/scratch/plibera/checkpoints/saved/FF_training_10.ckpt", "/cluster/scratch/plibera/checkpoints/saved/FF_training_20.ckpt", "/cluster/scratch/plibera/checkpoints/saved/FF_training_40.ckpt",
-              "/cluster/scratch/plibera/checkpoints/saved/FF_training_70.ckpt"] #, "/cluster/scratch/plibera/checkpoints/saved/FF_training_70.ckpt", "/cluster/scratch/plibera/checkpoints/saved/FF_training_100.ckpt"]
-              # "/cluster/scratch/plibera/checkpoints/saved/FF_training_200.ckpt"]
-stego_n_clusters: [10, 20, 40, 70]
-cluster_stego_by_image: True
-slic_n_clusters: [10, 20, 40, 70, 100]
+model_paths: []
+stego_n_clusters: []
+cluster_stego_by_image: False
+slic_n_clusters: []
 slic_compactness: 10
 
 output_root: "/cluster/home/plibera/outputs/wvn"
-experiment_name: "robot_images_crf"
+experiment_name: "freiburg_forest_labels"
 save_vis: True
-save_plots: True
-save_comparison_plots: True
+save_plots: False
+save_comparison_plots: False
 
 resolution: 320
 num_workers: 1

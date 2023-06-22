@@ -211,6 +211,10 @@ class STEGO(pl.LightningModule):
         self.cluster_probe = ClusterLookup(self.dim, n_classes+extra_clusters)
         self.cluster_metrics = UnsupervisedMetrics(
             "test/cluster/", n_classes, extra_clusters, True)
+        self.linear_probe = nn.Conv2d(self.dim, n_classes, (1, 1))
+        self.linear_metrics = UnsupervisedMetrics(
+            "test/linear/", n_classes, 0, False)
+        self.n_classes = n_classes
 
 
     def configure_optimizers(self):
@@ -230,8 +234,16 @@ class STEGO(pl.LightningModule):
         code2 = self.forward(img.flip(dims=[3]))[1]
         code = (code1 + code2.flip(dims=[3]))/2
         return code
+    
+    def postprocess_crf(self, img, probs):
+        pred = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
+        for j in range(img.shape[0]):
+            single_img = img[j]
+            x = self.crf.dense_crf(single_img, probs[j]).argmax(0)
+            pred[j] = x
+        return pred.int()
 
-    def postprocess(self, code, img, use_crf=True, image_clustering=False, n_image_clusters=0):
+    def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False, n_image_clusters=0):
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         if image_clustering:
             cluster_probs = torch.empty((code.shape[0], n_image_clusters, code.shape[2], code.shape[3]))
@@ -247,19 +259,14 @@ class STEGO(pl.LightningModule):
         linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
         cluster_probs = cluster_probs.cpu()
         linear_probs = linear_probs.cpu()
-        if use_crf:
-            cluster_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
-            linear_crf = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
-            for j in range(img.shape[0]):
-                single_img = img[j]
-                x = self.crf.dense_crf(single_img, cluster_probs[j]).argmax(0)
-                cluster_crf[j] = x
-                linear_crf[j] = self.crf.dense_crf(single_img, linear_probs[j]).argmax(0)
-            cluster_preds = cluster_crf.int()
-            linear_preds = linear_crf.int()
+        if use_crf_cluster:
+            cluster_preds = self.postprocess_crf(img, cluster_probs)
+        else:
+            cluster_preds = cluster_probs.argmax(1)
+        if use_crf_linear:
+            linear_preds = self.postprocess_crf(img, linear_probs)
         else:
             linear_preds = linear_probs.argmax(1)
-            cluster_preds = cluster_probs.argmax(1)
         return cluster_preds, linear_preds
 
 
@@ -291,9 +298,9 @@ class STEGO(pl.LightningModule):
         pos_intra_loss = pos_intra_loss.mean()
         pos_inter_loss = pos_inter_loss.mean()
 
-        self.cd_hist = torch.add(self.cd_hist, torch.histogram(pos_intra_cd.cpu(), bins=40, range=(-1, 1))[0])
-        self.cd_hist = torch.add(self.cd_hist, torch.histogram(pos_inter_cd.cpu(), bins=40, range=(-1, 1))[0])
-        self.cd_hist = torch.add(self.cd_hist, torch.histogram(neg_inter_cd.cpu(), bins=40, range=(-1, 1))[0])
+        self.cd_hist = torch.add(self.cd_hist, torch.histc(pos_intra_cd.cpu(), bins=40, min=-1, max=1))
+        self.cd_hist = torch.add(self.cd_hist, torch.histc(pos_inter_cd.cpu(), bins=40, min=-1, max=1))
+        self.cd_hist = torch.add(self.cd_hist, torch.histc(neg_inter_cd.cpu(), bins=40, min=-1, max=1))
 
         self.log('loss/pos_intra', pos_intra_loss)
         self.log('loss/pos_inter', pos_inter_loss)

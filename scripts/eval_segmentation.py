@@ -50,7 +50,7 @@ def my_app(cfg: DictConfig) -> None:
             label = batch["label"].cuda()
 
             code = model.get_code(img)
-            cluster_preds, linear_preds = model.postprocess(code=code, img=img, use_crf=cfg.run_crf)
+            cluster_preds, linear_preds = model.postprocess(code=code, img=img, use_crf_cluster=cfg.run_crf, use_crf_linear=cfg.run_crf)
 
             model.linear_metrics.update(linear_preds.cuda(), label)
             model.cluster_metrics.update(cluster_preds.cuda(), label)

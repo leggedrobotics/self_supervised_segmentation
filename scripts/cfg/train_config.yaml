@@ -1,26 +1,26 @@
-data_dir: "/scratch/tmp.17610028.plibera"
-dataset_name: "freiburg_forest_preprocessed_cropped"
+data_dir: "/scratch/tmp.19104891.plibera"
+dataset_name: "RUGD_preprocessed_cropped"
 
-checkpoint_dir: "/cluster/scratch/plibera/checkpoints/FF_training_500"
-model_path: #"/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5_cluster_fine_tuning.ckpt"
+checkpoint_dir: "/cluster/scratch/plibera/checkpoints/RUGD_fine-tuning"
+model_path: "/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5_cluster_linear_fine_tuning.ckpt"
 
 
 resolution: 224
-num_classes: 500
+num_classes: 24
 
 num_workers: 24
 batch_size: 32
 
 scalar_log_freq: 1
 max_steps: 5000
-val_check_interval: 32
+val_check_interval: 100
 
 num_neighbors: 5
 
-reset_clusters: False
+reset_clusters: True
 extra_clusters: 0
 
 # WandB
 wandb_project: "stego"
-wandb_name: "freiburg_forest_cropped_training_500"
+wandb_name: "RUGD_fine-tuning"
 wandb_log_model: "all"

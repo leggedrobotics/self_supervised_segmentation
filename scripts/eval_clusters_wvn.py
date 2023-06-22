@@ -87,7 +87,8 @@ def my_app(cfg: DictConfig) -> None:
             if cfg.save_vis:
                 image = Image.fromarray((kornia.utils.tensor_to_image(unnorm(img).cpu())*255).astype(np.uint8))
                 image.save(join(result_dir, "img", str(i)+".png"))
-                image = Image.fromarray((kornia.utils.tensor_to_image(label.cpu())*255).astype(np.uint8))
+                img = label.cpu().detach().numpy().astype(np.uint8)
+                image = Image.fromarray(img)
                 image.save(join(result_dir, "label", str(i)+".png"))
 
             features = None
@@ -98,7 +99,7 @@ def my_app(cfg: DictConfig) -> None:
                 t.tic()
                 features, code = model(batch["img"].cuda())
                 feature_times.append(t.tocvalue(restart=True))
-                clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf=cfg.run_crf)
+                clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf_cluster=cfg.run_crf, use_crf_linear=False)
                 time_val = t.tocvalue()
                 model_metrics[model_index].update(clusters.cuda(), label, features, code, time_val)
                 if cfg.save_vis:
@@ -106,7 +107,7 @@ def my_app(cfg: DictConfig) -> None:
                     image.save(join(result_dir, "stego_"+str(n_clusters), str(i)+".png"))
                 if cfg.cluster_stego_by_image:
                     t.tic()
-                    clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf=cfg.run_crf,
+                    clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf_cluster=cfg.run_crf, use_crf_linear=False,
                                                     image_clustering=True, n_image_clusters=n_clusters)
                     time_val = t.tocvalue()
                     model_cluster_metrics[model_index].update(clusters.cuda(), label, features, code, time_val)
