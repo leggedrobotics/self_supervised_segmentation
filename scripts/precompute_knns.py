@@ -1,3 +1,12 @@
+############################################
+# KNN computation for datasets used for training STEGO
+#
+# This script generates the KNN file for a new dataset to be used with STEGO.
+# Before running the script, preprocess the dataset (including cropping).
+# Adjust the path to the dataset, subsets to be processed and target resolution in cfg/knn_config.yaml
+#
+############################################
+
 import os
 from os.path import join
 import hydra

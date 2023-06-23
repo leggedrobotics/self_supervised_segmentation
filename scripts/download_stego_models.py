@@ -1,3 +1,9 @@
+############################################
+# Download model checkpoints trained by Hamilton et al.
+#
+############################################
+
+
 from os.path import join, exists
 import wget
 import os

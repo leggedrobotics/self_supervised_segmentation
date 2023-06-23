@@ -1,4 +1,4 @@
-# Backbone
+# Backbone parameters
 backbone: "dino"
 backbone_type: "vit_base"
 patch_size: 8

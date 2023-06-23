@@ -1,3 +1,13 @@
+############################################
+# Evaluation of STEGO segmentation
+#
+# This script calculates the unsupervised metrics for the given STEGO checkpoint and dataset
+#
+# Before running, adjust parameters in cfg/eval_config.yaml
+#
+############################################
+
+
 import os
 from os.path import join
 from collections import defaultdict

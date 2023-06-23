@@ -1,3 +1,15 @@
+############################################
+# Conversion of original STEGO checkpoints
+#
+# This script can be used to convert the original STEGO checkpoints, trained by Hamilton et al., to checkpoints that can be used in this package.
+#
+# Original checkpoints can be downloaded with download_stego_models.py
+#
+# Before running this script, adjust paths in the config file cfg/convert_checkpoint_config.yaml
+#
+############################################
+
+
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
@@ -15,6 +27,10 @@ from stego.stego import STEGO, ClusterLookup, ContrastiveCorrelationLoss
 
 
 class DinoFeaturizer(nn.Module):
+    """
+    Class from the original STEGO package, used to load the original checkpoint.
+    """
+
     def __init__(self, dim, cfg):
         super().__init__()
         self.cfg = cfg
@@ -117,6 +133,9 @@ class DinoFeaturizer(nn.Module):
             return image_feat, code
 
 class ContrastiveCRFLoss(nn.Module):
+    """
+    Class from the original STEGO package, used to load the original checkpoint.
+    """
 
     def __init__(self, n_samples, alpha, beta, gamma, w1, w2, shift):
         super(ContrastiveCRFLoss, self).__init__()
@@ -152,6 +171,10 @@ class ContrastiveCRFLoss(nn.Module):
 
 
 class LitUnsupervisedSegmenter(pl.LightningModule):
+    """
+    Class from the original STEGO package, used to load the original checkpoint.
+    """
+    
     def __init__(self, n_classes, cfg):
         super().__init__()
         self.cfg = cfg

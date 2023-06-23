@@ -19,6 +19,9 @@ from stego.data import *
 
 
 class SegmentationHead(nn.Module):
+    """
+    STEGO's segmentation head module.
+    """
     def __init__(self, input_dim, dim):
         super().__init__()
         self.linear = torch.nn.Sequential(torch.nn.Conv2d(input_dim, dim, (1, 1)))
@@ -32,6 +35,10 @@ class SegmentationHead(nn.Module):
 
 
 class ClusterLookup(nn.Module):
+    """
+    STEGO's clustering module.
+    Performs cosine distance K-means on the given features.
+    """
 
     def __init__(self, dim: int, n_classes: int):
         super(ClusterLookup, self).__init__()
@@ -62,6 +69,9 @@ class ClusterLookup(nn.Module):
 
 
 class ContrastiveCorrelationLoss(nn.Module):
+    """
+    STEGO's correlation loss.
+    """
 
     def __init__(self, cfg, ):
         super(ContrastiveCorrelationLoss, self).__init__()
@@ -137,6 +147,9 @@ class ContrastiveCorrelationLoss(nn.Module):
 
 
 class CRF():
+    """
+    Class encapsulating STEGO's CRF postprocessing step.
+    """
     def __init__(self, cfg):
         self.cfg = cfg
 
@@ -168,6 +181,9 @@ class CRF():
 
 
 class STEGO(pl.LightningModule):
+    """
+    The main STEGO class.
+    """
 
     def __init__(self, n_classes, cfg=None):
         super().__init__()
@@ -208,6 +224,9 @@ class STEGO(pl.LightningModule):
 
 
     def reset_clusters(self, n_classes, extra_clusters):
+        """
+        Resets STEGO's cluster and linear probes, possibly with a different number of classes and extra clusters for the cluster probe.
+        """
         self.cluster_probe = ClusterLookup(self.dim, n_classes+extra_clusters)
         self.cluster_metrics = UnsupervisedMetrics(
             "test/cluster/", n_classes, extra_clusters, True)
@@ -230,12 +249,20 @@ class STEGO(pl.LightningModule):
         return backbone_feats, self.segmentation_head(backbone_feats)
 
     def get_code(self, img):
+        """
+        Returns segmentation features for a given image.
+        Returned features are an average of two passes through STEGO, with the input image and its horizontal flip. 
+        """
         code1 = self.forward(img)[1]
         code2 = self.forward(img.flip(dims=[3]))[1]
         code = (code1 + code2.flip(dims=[3]))/2
         return code
     
     def postprocess_crf(self, img, probs):
+        """
+        Performs the CRF postprocessing step on the given image and a set of predicted class probabilities.
+        The class probabilities are interpolated to fit the image size inside the dense_crf function.
+        """
         pred = torch.empty(torch.Size(img.size()[:-3]+img.size()[-2:]))
         for j in range(img.shape[0]):
             single_img = img[j]
@@ -244,6 +271,19 @@ class STEGO(pl.LightningModule):
         return pred.int()
 
     def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False, n_image_clusters=0):
+        """
+        Postprocessing of STEGO.
+        For the given features, the cluster and linear probes are run, followed by CRF (if enabled).
+        If enabled, performs the K-means clustering only of the given segmentation features.
+
+        Arguments:
+        - code - STEGO's segmentation features.
+        - img - input image.
+        - use_crf_cluster - enables CRF on the image and class probabilities from the cluster probe.
+        - use_crf_linear - enables CRF on the image and class probabilities from the linear probe.
+        - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
+        - n_image_clusters - the number of clusters to use in K-means on the given segmentation features, used if image_clustering is set to True.
+        """
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         if image_clustering:
             cluster_probs = torch.empty((code.shape[0], n_image_clusters, code.shape[2], code.shape[3]))

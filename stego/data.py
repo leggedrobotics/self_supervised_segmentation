@@ -16,6 +16,9 @@ from stego.utils import *
 
 
 class UnlabeledImageFolder(Dataset):
+    """
+    A simple Dataset class to read images from a given folder.
+    """
     def __init__(self, root, transform):
         super(UnlabeledImageFolder, self).__init__()
         self.root = root
@@ -69,6 +72,19 @@ def create_cityscapes_colormap():
 
 
 class DirectoryDataset(Dataset):
+    """
+    A Dataset class that reads images and (if available) labels from the given directory.
+    The expected structure of the directory:
+    data_dir
+    |-- dataset_name
+        |-- imgs
+            |-- image_set
+        |-- labels
+            |-- image_set
+
+    If available, file names in labels/image_set should be the same as file names in imgs/image_set (excluding extensions).
+    If labels are not available (there is no labels folder) this class returns zero arrays of shape corresponding to the image shape.
+    """
     def __init__(self, data_dir, dataset_name, image_set, transform, target_transform):
         super(DirectoryDataset, self).__init__()
         self.split = image_set
@@ -116,6 +132,12 @@ class DirectoryDataset(Dataset):
 
 
 class ContrastiveSegDataset(Dataset):
+    """
+    The main Dataset class used by STEGO.
+    Internally uses the DirectoryDataset class to load images.
+    Additionally, this class uses the precomputed Nearest Neighbor files to extract the knn corresponding image for STEGO training.
+    It returns a dictionary containing an image and its positive pair (one of the nearest neighbor images).
+    """
     def __init__(self,
                  data_dir,
                  dataset_name,

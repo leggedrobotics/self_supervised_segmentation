@@ -1,3 +1,11 @@
+############################################
+# Download datasets used by Hamilton et al.
+#
+# In case of problems, try azcopy (see README).
+#
+############################################
+
+
 import hydra
 from omegaconf import DictConfig
 import os

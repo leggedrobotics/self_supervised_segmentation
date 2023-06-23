@@ -1,3 +1,16 @@
+############################################
+# Segmentation demonstration with STEGO
+#
+# This script can be used to generate segmentations of given images with the given STEGO checkpoint
+#
+# Before running the script, adjust the parameters in cfg/demo_config.yaml:
+# - image_dir - path to the folder with images (images from its subfolders won't be processed)
+# - model_path - path to the STEGO checkpoint
+# - output_root - path to the folder to save the segmentation in (segmentations will be saved in a subfolder named after experiment_name)
+#
+############################################
+
+
 import hydra
 import torch.multiprocessing
 from PIL import Image

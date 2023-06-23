@@ -1,9 +1,9 @@
 ############################################
 # Cropped dataset generation script
 #
-# This script crops the input dataset and creates a new dataset with the generated crops.
+# This script five-crops images from the input dataset and creates a new dataset with the generated crops.
 # In STEGO, cropping (five-crop) should be performed before KNN generation.
-# Hence, the images should first be cropped with this script, then KNN should be generated for the new dataset.
+# Hence, the images should first be cropped with this script, then KNNs should be generated for the new dataset.
 #
 # Expected input structure:
 # DATA_DIR
@@ -30,7 +30,10 @@ from scripts.data_preprocessing.preprocessing_utils import *
 DATA_DIR="/scratch/tmp.17524104.plibera"
 INPUT_NAME="cocostuff_curated"
 OUTPUT_NAME="cocostuff_curated_cropped"
+
+# An image of size HxW will be five-cropped with target size of (CROP_RATIO*H)x(CROP_RATIO*W)
 CROP_RATIO = 0.5
+# File extension of images (in the imgs directory)
 IMAGE_EXT = ".jpg"
 
 def save_five_crop(input_name, output_dir, sample_name, file_ext):

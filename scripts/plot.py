@@ -1,3 +1,17 @@
+############################################
+# Plotting script for STEGO experiments
+#
+# Two types of plots are available:
+# - Correspondence plot - an interactive plot visualizing cosine similarities
+#   between all features in the image and the selected query feature
+# - Precision-recall curves - a given STEGO checkpoint can be evaluated 
+#   on input data in predicting label co-occurrence with feature similarities
+#
+# Before running, adjust the parameters in cfg/plot_config.yaml
+#
+############################################
+
+
 import os
 from os.path import join
 import hydra
@@ -22,6 +36,10 @@ from stego.stego import *
 
 
 class Plotter():
+    """
+    This class collects methods used for plot generation.
+    """
+
     def __init__(self, cfg):
         self.cfg = cfg
         if cfg.model_path is not None:
@@ -38,6 +56,11 @@ class Plotter():
 
 
     def get_heatmaps(self, img, img_pos, query_points, zero_mean=True, zero_clamp=True):
+        """
+        Runs STEGO on the given pair of images (img, img_pos)
+        Generates a 2D heatmap of cosine similarities between STEGO's backbone features
+        """
+
         feats1, _ = self.stego.forward(img.cuda())
         feats2, _ = self.stego.forward(img_pos.cuda())
 
@@ -68,6 +91,9 @@ class Plotter():
 
 
     def plot_figure(self, img_a, img_b, query_point, axes, fig):
+        """
+        Plots a single visualization in the interactive correspondence figure.
+        """
         _, heatmap_correspondence = self.get_heatmaps(img_a, img_b, query_point, zero_mean=self.cfg.zero_mean, zero_clamp=self.cfg.zero_clamp)
         point = ((query_point[0, 0, 0] + 1) / 2 * self.cfg.display_resolution).cpu()
         self.reset_axes(axes)
@@ -93,6 +119,9 @@ class Plotter():
 
 
     def plot_correspondences_interactive(self):
+        """
+        Plots the interactive correspondence figure and updates according to user input.
+        """
         img_a = load_image_to_tensor(self.cfg.image_a_path, self.cfg.display_resolution)
         image_b_path = self.cfg.image_b_path
         if image_b_path is None:

@@ -1,3 +1,15 @@
+############################################
+# STEGO training script
+#
+# This script trains a new STEGO model from scratch of from a given checkpoint.
+#
+# Before running, adjust parameters in cfg/train_config.yaml.
+#
+# The hyperparameters of the model and the learning rates can be adjusted in stego/cfg/model_config.yaml.
+#
+############################################
+
+
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import hydra
@@ -64,15 +76,15 @@ def my_app(cfg: DictConfig) -> None:
         logger=wandb_logger,
         max_steps=cfg.max_steps,
         default_root_dir=cfg.checkpoint_dir,
-        # callbacks=[
-        #     ModelCheckpoint(
-        #         dirpath=cfg.checkpoint_dir,
-        #         every_n_train_steps=400,
-        #         save_top_k=2,
-        #         monitor="val/cluster/mIoU",
-        #         mode="max",
-        #     )
-        # ],
+        callbacks=[
+            ModelCheckpoint(
+                dirpath=cfg.checkpoint_dir,
+                every_n_train_steps=400,
+                save_top_k=2,
+                monitor="val/cluster/mIoU",
+                mode="max",
+            )
+        ],
         gpus=1,
         val_check_interval=cfg.val_check_interval
     )

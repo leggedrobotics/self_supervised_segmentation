@@ -1,3 +1,17 @@
+############################################
+# STEGO for WVN experiment
+#
+# This script calculates the WVN metrics of SLIC and STEGO segmentation models.
+#
+# Before running the script, adjust parameters in cfg/eval_wvn_config.yaml:
+# - data_dir and dataset_name - the input data should be proprocessed for the WVN experiment
+# - model_paths and stego_n_clusters - paths to STEGO checkpoints and the number of clusters of each model
+# - output_root and experiment_name - outputs will be save in the given directory in the subfolder named after experiment_name
+# - optionally, adjust other parameters, e.g. to consider SLIC segmentations, pre-image STEGO clustering
+#
+############################################
+
+
 import os
 from os.path import join
 from collections import defaultdict

@@ -2,7 +2,9 @@
 # Curated dataset generation script
 #
 # This script uses a list of samples in the input dataset to create a separate dataset containing only those samples.
-# The samples in the new dataset are created as links to samples in the input dataset to save space.
+# The list of samples should be saved in a text file, with each sample name in a separate line.
+# Sample names need to correspond to names of image and label files in the dataset (name of an image, without file extensions).
+# The samples in the new dataset are created as links to samples in the input dataset to save memory.
 # Hence, the input dataset to this script should already be preprocessed.
 #
 # Expected input structure:

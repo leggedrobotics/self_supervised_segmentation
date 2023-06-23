@@ -8,6 +8,11 @@ from abc import ABC, abstractmethod
 
 
 def get_backbone(cfg):
+    """
+    Returns a selected STEGO backbone.
+    After implementing the Backbone class for your backbone, add it to be returned from this function with a desired named.
+    The backbone can then be used by specifying its name in the STEGO configuration file.
+    """
     if cfg.backbone == "dino":
         return DinoViT(cfg)
     elif cfg.backbone == "dinov2":
@@ -17,6 +22,11 @@ def get_backbone(cfg):
     
 
 class Backbone(ABC, nn.Module):
+    """
+    Base class to provide an interface for new STEGO backbones.
+
+    To add a new backbone for use in STEGO, add a new implementation of this class.
+    """
 
     vit_name_long_to_short = {
         "vit_tiny": "T",

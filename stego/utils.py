@@ -207,7 +207,6 @@ class UnsupervisedMetrics(Metric):
     def compute(self):
         if self.compute_hungarian:
             self.assignments = linear_sum_assignment(self.stats.detach().cpu(), maximize=True)
-            # print(self.assignments)
             if self.extra_clusters == 0:
                 self.histogram = self.stats[np.argsort(self.assignments[1]), :]
             if self.extra_clusters > 0:
