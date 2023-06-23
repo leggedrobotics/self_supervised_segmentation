@@ -1,0 +1,29 @@
+data_dir: "/scratch/tmp.19104891.plibera"
+dataset_name: "RUGD_preprocessed_cropped"
+
+# Output directory to save the trained checkpoints during training
+checkpoint_dir: "/cluster/scratch/plibera/checkpoints/RUGD_fine-tuning"
+# (Optional) Checkpoint path to initialize the training
+model_path: "/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5_cluster_linear_fine_tuning.ckpt"
+
+
+resolution: 224
+num_classes: 24
+
+num_workers: 24
+batch_size: 32
+
+scalar_log_freq: 1
+max_steps: 5000
+val_check_interval: 100
+
+num_neighbors: 5
+
+# Reset the cluster and linear probes of the loaded model. If True, cluster and linear probes will be reset with n_classes and extra_clusters given in this file
+reset_clusters: True
+extra_clusters: 0
+
+# WandB
+wandb_project: "stego"
+wandb_name: "RUGD_fine-tuning"
+wandb_log_model: "all"

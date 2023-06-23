@@ -1,0 +1,12 @@
+data_dir: "/scratch/tmp.17616576.plibera"
+dataset_name: "cocostuff_curated"
+model_path: "/cluster/scratch/plibera/checkpoints/cocostuff_training/epoch=0-step=3599.ckpt" # Path to STEGO checkpoint
+output_root: "/cluster/home/plibera/outputs/eval"
+experiment_name: "cocostuff_val"
+
+resolution: 320
+batch_size: 8
+num_workers: 24
+
+n_batches: # Optionally, specify a number of batches in the shuffled dataset to calculate metrics on
+run_crf: False

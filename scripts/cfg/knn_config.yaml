@@ -1,0 +1,9 @@
+data_dir: "/cluster/scratch/plibera"
+dataset_name: "cocostuff_curated_cropped"
+image_sets:
+  - "train"
+  - "val"
+
+resolution: 224
+batch_size: 8
+num_workers: 24

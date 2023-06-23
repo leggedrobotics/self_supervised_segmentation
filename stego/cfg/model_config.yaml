@@ -1,0 +1,40 @@
+# Backbone parameters
+backbone: "dino"
+backbone_type: "vit_base"
+patch_size: 8
+dropout_p: 0.1 # Dropout probability on backbone output, clamped to [0,1]. For training, STEGO used 0.1.
+pretrained_weights: 
+
+# Head
+dim: 70
+
+# Clustering
+extra_clusters: 0
+
+# CRF
+crf_max_iter: 10
+pos_w: 3
+pos_xy_std: 1
+bi_w: 4
+bi_xy_std: 67
+bi_rgb_std: 3
+
+# Training params
+lr: 5e-4
+cluster_lr: 5e-3
+linear_lr: 5e-3
+val_n_imgs: 3
+
+# Feature Contrastive params
+zero_clamp: True
+stabalize: False
+pointwise: True
+feature_samples: 11
+neg_samples: 5
+
+neg_inter_weight: 1.0
+pos_inter_weight: 0.5
+pos_intra_weight: 1.0
+neg_inter_shift: 0.3
+pos_inter_shift: 0.2
+pos_intra_shift: 0.35

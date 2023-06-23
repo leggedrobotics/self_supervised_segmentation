@@ -1,184 +1,227 @@
-# STEGO: Unsupervised Semantic Segmentation by Distilling Feature Correspondences
-### [Project Page](https://mhamilton.net/stego.html) | [Paper](https://arxiv.org/abs/2203.08414) | [Video](https://aka.ms/stego-video) | [ICLR 2022](https://iclr.cc/virtual/2022/poster/6068) 
+# Self-Supervised Semantic Segmentation for Wild Visual Navigation
 
-	
-[Mark Hamilton](https://mhamilton.net/),
-[Zhoutong Zhang](https://ztzhang.info/),
-[Bharath Hariharan](http://home.bharathh.info/),
-[Noah Snavely](https://www.cs.cornell.edu/~snavely/),
-[William T. Freeman](https://billf.mit.edu/about/bio)
+This is the implementation of the project "Semantic Understanding of Outdoor Environments for Navigation" completed at the Robotic Systems Lab at ETH Zurich in the Spring Semester 2023.
 
-This is the official implementation of the paper "Unsupervised Semantic Segmentation by Distilling Feature Correspondences".
+The goal of the project was to investigate how the recent unsupervised semantic segmentation model STEGO ([Hamilton et al., 2022](https://arxiv.org/pdf/2203.08414.pdf)) could be used in an outdoor navigation pipeline for a ground mobile robot, with the main focus on the context of the Wild Visual Navigation system ([Frey & Mattamala et al.](https://sites.google.com/leggedrobotics.com/wild-visual-navigation)).
 
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mhamilton723/STEGO/blob/master/src/STEGO_Colab_Demo.ipynb) \
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/unsupervised-semantic-segmentation-by-2/unsupervised-semantic-segmentation-on)](https://paperswithcode.com/sota/unsupervised-semantic-segmentation-on?p=unsupervised-semantic-segmentation-by-2)\
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/unsupervised-semantic-segmentation-by-2/unsupervised-semantic-segmentation-on-coco-4)](https://paperswithcode.com/sota/unsupervised-semantic-segmentation-on-coco-4?p=unsupervised-semantic-segmentation-by-2) \
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/unsupervised-semantic-segmentation-by-2/unsupervised-semantic-segmentation-on-potsdam-1)](https://paperswithcode.com/sota/unsupervised-semantic-segmentation-on-potsdam-1?p=unsupervised-semantic-segmentation-by-2)
+This package is built on a refactored version of [STEGO: Unsupervised Semantic Segmentation by Distilling Feature Correspondences](https://github.com/mhamilton723/STEGO) by Hamilton et al.
 
-
-[![Overview Video](https://marhamilresearch4.blob.core.windows.net/stego-public/graphics/STEGO%20Header%20video%20(2).jpg)](https://youtu.be/NPub4E4o8BA)
+![image](doc/fig1.png)
+_SLIC (WVN's segmentation method), standard STEGO, and STEGO with per-image feature clustering segmenting natural scenes._
 
 ## Contents
-<!--ts-->
-   * [Install](#install)
-   * [Evaluation](#evaluation)
-   * [Training](#training)
-      * [Bringing your own data](#bringing-your-own-data)
-   * [Understanding STEGO](#understanding-stego)
-      * [Unsupervised Semantic Segmentation](#unsupervised-semantic-segmentation)
-      * [Deep features connect objects across images](#deep-features-connect-objects-across-images)
-      * [The STEGO architecture](#the-stego-architecture)
-      * [Results](#results)
-   * [Citation](#citation)
-   * [Contact](#contact)
-<!--te-->
+   * [Setup](#setup)
+     * [Installation](#installation)
+     * [Dataset Download](#download-datasets)
+     * [Data Preprocessing](#preprocess-datasets)
+     * [Model Download](#download-and-convert-stego-models)
+     * [KNN Preprocessing](#precompute-knns)
+   * [Demo Segmentation](#run-demo-segmentation)
+   * [Evaluate Segmentation](#evaluate-segmentation)
+   * [Train Segmentation](#train-segmentation)
+   * [Evaluate for WVN](#evaluate-segmentation-for-wvn)
+   * [Generate Plots](#generate-plots)
 
-## Install
 
-### Clone this repository:
-```shell script
-git clone https://github.com/mhamilton723/STEGO.git
-cd STEGO
+
+## Setup
+
+### Installation
+
+Clone the repository:
 ```
-
-### Install Conda Environment
-Please visit the [Anaconda install page](https://docs.anaconda.com/anaconda/install/index.html) if you do not already have conda installed
-
-```shell script
+git clone https://github.com/leggedrobotics/self_supervised_segmentation.git
+cd self_supervised_segmentation
+```
+Install the environment:
+```
 conda env create -f environment.yml
 conda activate stego
+pip install -e .
 ```
 
-### Download Pre-Trained Models
+### Download datasets
 
-```shell script
-cd src
-python download_models.py
+Download general datasets used by Hamilton et al.:
 ```
-
-### Download Datasets
-
-First, change the `pytorch_data_dir` variable to your 
-systems pytorch data directory where datasets are stored. 
-
-```shell script
-python download_datasets.py
+python scripts/download_stego_datasets.py
 ```
-
-Once downloaded please navigate to your pytorch data dir and unzip the resulting files:
-
-```shell script
-cd /YOUR/PYTORCH/DATA/DIR
-unzip cocostuff.zip
-unzip cityscapes.zip
-unzip potsdam.zip
-unzip potsdamraw.zip
-```
-
-
-## Evaluation
-
-To evaluate our pretrained models please run the following in `STEGO/src`:
-```shell script
-python eval_segmentation.py
-```
-One can change the evaluation parameters and model by editing [`STEGO/src/configs/eval_config.yml`](src/configs/eval_config.yml)
-
-## Training
-
-To train STEGO from scratch, please first generate the KNN indices for the datasets of interest:
-
-```shell script
-python precompute_knns.py
-```
-
-Then you can run the following in `STEGO/src`:
-```shell script
-python train_segmentation.py
-```
-Hyperparameters can be adjusted in [`STEGO/src/configs/train_config.yml`](src/configs/train_config.yml)
-
-To monitor training with tensorboard run the following from `STEGO` directory:
-
-```shell script
-tensorboard --logdir logs
-```
-
-### Bringing your own data
-
-To train STEGO on your own dataset please create a directory in your pytorch data root with the following structure. Note, if you do not have labels, omit the `labels` directory from the structure:
+**_NOTE:_** `wget`, which is used in the download scripts might not always work well with these large downloads. In case the download fails, try downloading the selected datasets with [azcopy](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10). For example, to download the cocostuff dataset:
 
 ```
-dataset_name
-|── imgs
-|   ├── train
-|   |   |── unique_img_name_1.jpg
-|   |   └── unique_img_name_2.jpg
-|   └── val
-|       |── unique_img_name_3.jpg
-|       └── unique_img_name_4.jpg
-└── labels
-    ├── train
-    |   |── unique_img_name_1.png
-    |   └── unique_img_name_2.png
-    └── val
-        |── unique_img_name_3.png
-        └── unique_img_name_4.png
+azcopy copy https://marhamilresearch4.blob.core.windows.net/stego-public/pytorch_data/cocostuff.zip ./cocostuff.zip
 ```
 
-Next in [`STEGO/src/configs/train_config.yml`](src/configs/train_config.yml) set the following parameters:
+In the case of the cocostuff dataset, Hamilton et al. use subsets of training and validation samples for experiments, which were also used in this project. Lists of samples can be obtained by downloading the dataset from the link above. Then, a dataset curated according to a selected list can be generated with `scripts/create_curated_dataset.py`.
 
-```yaml
-dataset_name: "directory"
-dir_dataset_name: "dataset_name"
-dir_dataset_n_classes: 5 # This is the number of object types to find
+Download datasets with natural scenes:
+```
+# Download RUGD
+wget http://rugd.vision/data/RUGD_frames-with-annotations.zip
+wget http://rugd.vision/data/RUGD_annotations.zip
+unzip RUGD_frames-with-annotations.zip -d RUGD
+unzip RUGD_annotations.zip -d RUGD
+rm RUGD_annotations.zip RUGD_frames-with-annotations.zip
+
+# Download Freiburg Forest
+wget http://deepscene.cs.uni-freiburg.de/static/datasets/download_freiburg_forest_annotated.sh
+bash download_freiburg_forest_annotated.sh
+tar -xzf freiburg_forest_annotated.tar.gz
+rm freiburg_forest_annotated.tar.gz*
 ```
 
-If you want to train with cropping to increase spatial resolution run our [cropping utility](src/crop_datasets.py).
+### Preprocess datasets
 
-Finally, uncomment the custom dataset code and run `python precompute_knns.py`
- from `STEGO\src` to generate the prerequisite KNN information for the custom dataset.
- 
-You can now train on your custom dataset using:
-```shell script
-python train_segmentation.py
+To facilitate using various datasets with the package, preprocessing scripts have been added to `scripts/data_preprocessing`. Before running, adjust paths in each preprocessing script.
+
+Cocostuff preprocessing:
+```
+# Preprocess full Cocostuff
+python scripts/data_preprocessing/preprocess_cocostuff.py
+
+# Create the curated dataset
+python scripts/data_preprocessing/create_curated_dataset.py
+
+# Crop the dataset (only for training)
+python scripts/data_preprocessing/crop_dataset.py
 ```
 
-## Understanding STEGO
-
-### Unsupervised semantic segmentation
-Real-world images can be cluttered with multiple objects making classification feel arbitrary. Furthermore, objects in the real world don't always fit in bounding boxes. Semantic segmentation methods aim to avoid these challenges by assigning each pixel of an image its own class label. Conventional semantic segmentation methods are notoriously difficult to train due to their dependence on densely labeled images, which can take 100x longer to create than bounding boxes or class annotations. This makes it hard to gather sizable and diverse datasets impossible in domains where humans don't know the structure a-priori. We sidestep these challenges by learning an ontology of objects with pixel-level semantic segmentation through only self-supervision.
-
-### Deep features connect objects across images
-Self-supervised contrastive learning enables algorithms to learn intelligent representations for images without supervision. STEGO builds on this work by showing that representations from self-supervised visual transformers like  Caron et. al.’s  DINO are already aware of the relationships between objects. By computing the cosine similarity between image features, we can see that similar semantic regions such as grass, motorcycles, and sky are “linked” together by feature similarity.
-
-![Feature connection GIF](https://mhamilton.net/images/Picture3.gif)
-
-
-### The STEGO architecture
-The STEGO unsupervised segmentation system learns by distilling correspondences between images into a set of class labels using a contrastive loss. In particular we aim to learn a segmentation that respects the induced correspondences between objects. To achieve this we train a shallow segmentation network on top of the DINO ViT backbone with three contrastive terms that distill connections between an image and itself, similar images, and random other images respectively. If two regions are strongly coupled by deep features we encourage them to share the same class.
-
-![Architecture](results/figures/stego.svg)
-
-### Results
-
-We evaluate the STEGO algorithm on the CocoStuff, Cityscapes, and Potsdam semantic segmentation datasets. Because these methods see no labels, we use a Hungarian matching algorithm to find the best mapping between clusters and dataset classes. We find that STEGO is capable of segmenting complex and cluttered scenes with much higher spatial resolution and sensitivity than the prior art, [PiCIE](https://sites.google.com/view/picie-cvpr2021/home). This not only yields a substantial qualitative improvement, but also more than doubles the mean intersection over union (mIoU). For results on Cityscapes, and Potsdam see [our paper](https://arxiv.org/abs/2203.08414).
-
-![Cocostuff results](results/figures/cocostuff27_results.jpg)
-
-
-## Citation
-
+RUGD preprocessing:
 ```
-@article{hamilton2022unsupervised,
-  title={Unsupervised Semantic Segmentation by Distilling Feature Correspondences},
-  author={Hamilton, Mark and Zhang, Zhoutong and Hariharan, Bharath and Snavely, Noah and Freeman, William T},
-  journal={arXiv preprint arXiv:2203.08414},
-  year={2022}
-}
+# Preprocess RUGD
+python scripts/data_preprocessing/preprocess_RUGD.py
+
+# Crop the dataset (only for training)
+python scripts/data_preprocessing/crop_dataset.py
 ```
 
-## Contact
+Freiburg Forest preprocessing:
+```
+# Preprocess Freiburg Forest
+python scripts/data_preprocessing/preprocess_freiburg_forest.py
 
-For feedback, questions, or press inquiries please contact [Mark Hamilton](mailto:markth@mit.edu)
+# Crop the dataset (only for training)
+python scripts/data_preprocessing/crop_dataset.py
+```
+
+To use custom data with this package preprocess it to have the following structure:
+```
+YOUR_DATASET
+|-- imgs
+    |-- train
+    |-- val
+|-- labels
+    |-- train
+    |-- val
+```
+With RGB images in the `imgs` directory, and (optionally) annotations in the `labels` directory.
+
+If the `labels` directory is provided it should contain a label for all images in `imgs`, with each label named the same as its corresponding image (excluding file extension).
+Annotations should be provided as single-channel masks of the same size as their corresponding images.
+
+### Download and convert STEGO models
+
+Download STEGO model checkpoints:
+
+```
+python scripts/download_stego_models.py
+```
+
+Convert selected checkpoints to the model structure used by this package.
+Set input and output paths in `scripts/cfg/convert_checkpoint_config.yaml` and run:
+```
+python scripts/convert_original_stego_checkpoint.py
+```
+
+### Precompute KNNs
+
+To use a preprocessed dataset with a selected model and at a selected resolution, the `precopmute_knns.py` script needs to be run with the selected parameters and model.
+This will create the nearest neighbors file in a separate subdirectory `nns` of the selected dataset.
+Adjust the parameters in `scripts/cfg/knn_config.yaml` and run:
+```
+python scripts/precompute_knns.py
+```
+
+
+## Run demo segmentation
+To generate segmentation predictions for a selected folder of images:
+- Adjust input and output paths in `scripts/cfg/demo_config.yaml`
+- Run:
+```
+python scripts/demo_segmentation.py
+```
+This will generate visualizations of unsupervised segmentations in `output_dir/experiment_name/cluster` and visualizations of linear probe segmentations in `output_dir/experiment_name/linear`.
+
+
+## Evaluate segmentation
+To evaluate STEGO on a selected dataset with unsupervised metrics:
+- Adjust paths and parameters in `scripts/cfg/eval_config.yaml`
+- Run:
+```
+python scripts/eval_segmentation.py
+```
+The script will calculate and print the results of the evaluation on the given data.
+
+## Train segmentation
+After performing the preprocessing steps outlined in [Setup](#setup), you can train STEGO on the selected data.
+
+Before training, select the backbone and adjust the parameters of the model and the training.
+
+### STEGO's backbone
+
+STEGO was built based on DINO ViT, but it can be used with any Vision Transformer.
+All available backbones can be found in `stego/backbones/backbone.py`.
+To add a new backbone, add all code necessary for the backbone to the `stego/backbones` folder and modify `stego/backbone/backbones.py`:
+- Add an implementation of the `Backbone` class for your backbone,
+- Add your implementation to the `get_backbone` function with the desired name.
+
+### Parameters
+
+The parameters of STEGO are specified in `stego/cfg/model_config.yaml`. In this file you can:
+- select the backbone,
+- specify other model parameters,
+- specify training parameters: learning rates and STEGO's correspondence loss parameters.
+
+Other parameters for training can be set in `scripts/cfg/train_config.yaml`.
+
+After adjusting the parameters, run the training with:
+```
+python scripts/train.py
+```
+
+### Checkpoints and Logging
+
+STEGO is implemented with Pytorch Lightning, which handles saving the checkpoints during training, in a directory that can be specified in `scripts/cfg/train_config.yaml`.
+
+Logging is implemented with Weights & Biases. To use W&B over cloud, login to wandb:
+```
+wandb login
+```
+During training, apart from unsupervised metrics, loss values and other parameters, visualizations of sample segmentations and the learned feature similarity distribution plot are logged.
+
+
+## Evaluate segmentation for WVN
+To run the experiment that compares segmentation methods in the context of an outdoor navigation pipeline:
+- Generate binary traversability labels for a selected dataset. Currently, only preprocessing for Freiburg Forest is available. However, you can also preprocess different datasets for this experiment with this script provided that you change `TRAVERSABLE_IDS` to IDs of traversable classes in your dataset. Run:
+```
+# Adjust paths in the script before running
+python scripts/data_preprocessing/generate_traversability_labels_freiburg_forest.py
+```
+- Adjust parameters in `scripts/cfg/eval_clusters_wvn.yaml`
+- Run:
+```
+python scripts/eval_clusters_wvn.py
+```
+The script will calculate and print the results of the evaluation on the given data, and save the selected visualizations.
+
+## Generate plots
+The `scripts/plot.py` script enables generation of precision-recall curves showing the performance of features in predicting label co-occurrence.
+It also provides an interactive plot visualizing feature similarities in selected images.
+
+To generate the plots:
+- Adjust paths and parameters in `scripts/cfg/plot_config.yaml`
+- Run:
+```
+python scripts/plot.py
+```

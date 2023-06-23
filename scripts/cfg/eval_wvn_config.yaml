@@ -1,0 +1,27 @@
+data_dir: "/cluster/scratch/plibera"
+dataset_name: "freiburg_forest_preprocessed_trav"
+
+# Paths tp stego models with given numbers of clusters. The models should have the same backbone and segmentation head weights (only differ in the clustering step)
+model_paths: []
+# Numbers of clusters of each corresponding model given in model_paths
+stego_n_clusters: []
+# Set to True to run per-image STEGO clustering
+cluster_stego_by_image: False
+# Numbers of segments of SLIC models
+slic_n_clusters: []
+slic_compactness: 10
+
+output_root: "/cluster/home/plibera/outputs/wvn"
+experiment_name: "freiburg_forest_labels"
+# Save visualizations of segmentations
+save_vis: True
+# Save plots of distributions of different metrics (e.g. feature variance per segment)
+save_plots: False
+# Save plots presenting distributions of metrics of several models in a single plot
+save_comparison_plots: False
+
+resolution: 320
+num_workers: 1
+
+n_imgs: # Optionally, specify a number of batches in the shuffled dataset to calculate metrics on
+run_crf: True
