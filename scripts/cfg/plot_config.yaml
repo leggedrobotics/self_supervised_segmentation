@@ -1,0 +1,40 @@
+# Data and paths
+model_path: 
+cmap: "turbo"
+zero_mean: False # Mean normalize cosine similarity values in the displayed heatmap
+zero_clamp: True # Clamp cosine similarity heatmap to 0
+
+
+
+# Interactive correspondences plot 
+plot_correspondences_interactive: False
+image_a_path: "/cluster/home/plibera/forest.png" 
+image_b_path: # Can be omitted to generate self-correspondences for the first image
+correspondence_output_dir: "/cluster/home/plibera"
+display_resolution: 512
+
+# Augmentations params for image B
+brightness_factor: 1.0  # Non-negative, 1.0 for no change
+contrast_factor: 1.0    # Non-negative, 1.0 for no change
+saturation_factor: 1.0  # Non-negative, 1.0 for no change
+hue_factor: 0.0         # [-0.5, 0.5], 0.0 for no change
+gaussian_kernel_size: #13
+gaussian_sigma: #2.0
+
+
+
+# Precision-Recall curves plot
+plot_pr: True
+plot_backbone_pr: False
+plot_stego_pr: False
+data_dir: "/scratch/tmp.17524104.plibera"
+dataset_name: "RUGD"
+# Output path for plots
+pr_output_dir: "/cluster/home/plibera/self_supervised_segmentation/results/pr"
+# Output path for PR data
+pr_output_data_dir: "/cluster/scratch/plibera/results/pr"
+# Names of pickled PR data files to additionally display in the plot
+additional_pr_curves: ["RUGD_preprocessed_cropped_DINOv2-B-14_224.pkl", "RUGD_preprocessed_cropped_DINO-B-8_224.pkl", "RUGD_preprocessed_cropped_DINO-B-16_224.pkl"]
+pr_resolution: 224
+batch_size: 8
+num_workers: 24
