@@ -11,7 +11,9 @@ import os
 import wandb
 import matplotlib as plt
 import io
-from sklearn.cluster import KMeans
+from kornia.core import Tensor
+from kornia.testing import KORNIA_CHECK, KORNIA_CHECK_SHAPE
+
 
 from stego.backbones.backbone import *
 from stego.utils import *
@@ -179,13 +181,200 @@ class CRF():
         return torch.from_numpy(Q)    
 
 
+class KMeans:
+    """Implements the kmeans clustering algorithm in PyTorch.
+    The code of this class was based on: https://github.com/kornia/kornia/pull/2304
+
+    Args:
+        num_clusters: number of clusters the data has to be assigned to
+        cluster_centers: tensor of starting cluster centres can be passed instead of num_clusters
+        tolerance: float value. the algorithm terminates if the shift in centers is less than tolerance
+        max_iterations: number of iterations to run the algorithm for
+        distance_metric: {"euclidean", "cosine"}, type of the distance metric to use
+        device: the device to which all tensors are moved to and computed
+        seed: number to set torch manual seed for reproducibility
+    """
+
+    def __init__(
+        self,
+        num_clusters: int,
+        cluster_centers: Tensor,
+        tolerance: float = 10e-4,
+        max_iterations: int = 0,
+        distance_metric = 'euclidean',
+        device = None,
+        seed = None,
+    ) -> None:
+        KORNIA_CHECK(num_clusters != 0, "num_clusters can't be 0")
+
+        # cluster_centers should have only 2 dimensions
+        if cluster_centers is not None:
+            KORNIA_CHECK_SHAPE(cluster_centers, ["C", "D"])
+
+        self.num_clusters = num_clusters
+        self.cluster_centers = cluster_centers
+        self.tolerance = tolerance
+        self.max_iterations = max_iterations
+        self.device = device
+
+        if distance_metric == "euclidean":
+            self._pairwise_distance = self._pairwise_euclidean_distance
+        elif distance_metric == "cosine":
+            self._pairwise_distance = self._pairwise_cosine_distance
+        else:
+            raise ValueError("Unknown distance metric")
+
+        self.final_cluster_assignments = None
+        self.final_cluster_centers = None
+
+        if seed is not None:
+            torch.manual_seed(seed)
+
+    def get_cluster_centers(self) -> Tensor:
+        KORNIA_CHECK(self.final_cluster_centers is not None, "Model has not been fit to a dataset")
+        return self.final_cluster_centers
+
+    def get_cluster_assignments(self) -> Tensor:
+        KORNIA_CHECK(self.final_cluster_assignments is not None, "Model has not been fit to a dataset")
+        return self.final_cluster_assignments
+
+    def _initialise_cluster_centers(self, X: Tensor, num_clusters: int) -> Tensor:
+        """Chooses num_cluster points from X as the initial cluster centers.
+
+        Args:
+            X: 2D input tensor to be clustered
+            num_clusters: number of desired cluster centers
+
+        Returns:
+            2D Tensor with num_cluster rows
+        """
+        num_samples = len(X)
+        perm = torch.randperm(num_samples)
+        idx = perm[:num_clusters]
+        initial_state = X[idx]
+        return initial_state
+
+    def _pairwise_euclidean_distance(self, data1: Tensor, data2: Tensor) -> Tensor:
+        """Computes pairwise distance between 2 sets of vectors.
+
+        Args:
+            data1: 2D tensor of shape N, D
+            data2: 2D tensor of shape C, D
+
+        Returns:
+            2D tensor of shape N, C
+        """
+        # N*1*D
+        A = data1[:, None, ...]
+        # 1*C*D
+        B = data2[None, ...]
+        distance = (A - B) ** 2.0
+        # return N*C matrix for pairwise distance
+        distance = distance.sum(dim=-1)
+        return distance
+
+    def _pairwise_cosine_distance(self, data1: Tensor, data2: Tensor) -> Tensor:
+        """Computes pairwise distance between 2 sets of vectors.
+
+        Args:
+            data1: 2D tensor of shape N, D
+            data2: 2D tensor of shape C, D
+
+        Returns:
+            2D tensor of shape N, C
+        """
+        normed_A = F.normalize(data1, dim=1)
+        normed_B = F.normalize(data2, dim=1)
+        distance = 1.0 - torch.einsum("nd,cd->nc", normed_A, normed_B)
+        return distance
+    
+    def fit(self, X: Tensor) -> None:
+        """Iterative KMeans clustering till a threshold for shift in cluster centers or a maximum no of iterations
+        have reached.
+
+        Args:
+            X: 2D input tensor to be clustered
+        """
+        # X should have only 2 dimensions
+        X = X.reshape((-1, X.shape[-1]))
+        KORNIA_CHECK_SHAPE(X, ["N", "D"])
+
+        if self.cluster_centers is None:
+            self.cluster_centers = self._initialise_cluster_centers(X, self.num_clusters)
+        else:
+            # X and cluster_centers should have same number of columns
+            KORNIA_CHECK(
+                X.shape[1] == self.cluster_centers.shape[1],
+                f"Dimensions at position 1 of X and cluster_centers do not match. \
+                {X.shape[1]} != {self.cluster_centers.shape[1]}",
+            )
+
+        X = X.to(self.device)
+        current_centers = self.cluster_centers.to(self.device)
+
+        previous_centers = None
+        iteration: int = 0
+
+        while True:
+            # find distance between X and current_centers
+            distance: Tensor = self._pairwise_distance(X, current_centers)
+
+            cluster_assignment = torch.argmin(distance, dim=1)
+
+            previous_centers = current_centers.clone()
+
+            for index in range(self.num_clusters):
+                selected = torch.nonzero(cluster_assignment == index).squeeze().to(self.device)
+                selected = torch.index_select(X, 0, selected)
+                # edge case when a certain cluster centre has no points assigned to it
+                # just choose a random point as it's update
+                if selected.shape[0] == 0:
+                    selected = X[torch.randint(len(X), (1,))]
+                current_centers[index] = selected.mean(dim=0)
+
+            # sum of distance of how much the newly computed clusters have moved from their previous positions
+            center_shift = torch.sum(torch.sqrt(torch.sum((current_centers - previous_centers) ** 2, dim=1)))
+
+            iteration = iteration + 1
+
+            if self.tolerance is not None and center_shift**2 < self.tolerance:
+                break
+
+            if self.max_iterations != 0 and iteration >= self.max_iterations:
+                break
+
+        self.final_cluster_assignments = cluster_assignment
+        self.final_cluster_centers = current_centers
+
+    def predict(self, x: Tensor) -> Tensor:
+        """Find the cluster center closest to each point in x.
+
+        Args:
+            x: 2D tensor
+
+        Returns:
+            1D tensor containing cluster id assigned to each data point in x
+        """
+
+        # x and cluster_centers should have same number of columns
+        KORNIA_CHECK(
+            x.shape[1] == self.final_cluster_centers.shape[1],
+            f"Dimensions at position 1 of x and cluster_centers do not match. \
+                {x.shape[1]} != {self.final_cluster_centers.shape[1]}",
+        )
+
+        x = x.to(self.device)
+        distance = self._pairwise_distance(x, self.final_cluster_centers)
+        cluster_assignment = torch.argmin(distance, axis=1)
+        return cluster_assignment
+
 
 class STEGO(pl.LightningModule):
     """
     The main STEGO class.
     """
 
-    def __init__(self, n_classes, cfg=None):
+    def __init__(self, n_classes, n_image_clusters = 0, cfg=None):
         super().__init__()
         if cfg is None:
             with open(os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r") as file:
@@ -217,6 +406,11 @@ class STEGO(pl.LightningModule):
             p.requires_grad = False
 
         self.crf = CRF(self.cfg)
+
+        self.n_image_clusters = n_image_clusters
+        if n_image_clusters == 0:
+            self.n_image_clusters = n_classes
+        self.kmeans = KMeans(num_clusters=self.n_image_clusters, cluster_centers=None, distance_metric='cosine')
 
         self.cd_hist = torch.zeros(40)
 
@@ -270,7 +464,7 @@ class STEGO(pl.LightningModule):
             pred[j] = x
         return pred.int()
 
-    def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False, n_image_clusters=0):
+    def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False):
         """
         Postprocessing of STEGO.
         For the given features, the cluster and linear probes are run, followed by CRF (if enabled).
@@ -282,16 +476,21 @@ class STEGO(pl.LightningModule):
         - use_crf_cluster - enables CRF on the image and class probabilities from the cluster probe.
         - use_crf_linear - enables CRF on the image and class probabilities from the linear probe.
         - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
-        - n_image_clusters - the number of clusters to use in K-means on the given segmentation features, used if image_clustering is set to True.
         """
+
+        orig_code = code
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         if image_clustering:
-            cluster_probs = torch.empty((code.shape[0], n_image_clusters, code.shape[2], code.shape[3]))
+            cluster_probs = torch.empty((code.shape[0], self.n_image_clusters, code.shape[2], code.shape[3]))
             for j in range(code.shape[0]):
+                single_code = orig_code[j]
+                normed_code = F.normalize(single_code, dim=0).permute(1, 2, 0)
+                
+                self.kmeans.fit(normed_code)
+                normed_centers = F.normalize(self.kmeans.final_cluster_centers, dim=1)
+
                 single_code = code[j]
                 normed_code = F.normalize(single_code, dim=0).permute(1, 2, 0)
-                kmeans = KMeans(n_clusters=n_image_clusters, max_iter=100, tol=0.01, random_state=0).fit(normed_code.view(-1, normed_code.shape[-1]).cpu().numpy())
-                normed_centers = F.normalize(torch.from_numpy(kmeans.cluster_centers_), dim=1).cuda()
                 inner_products = torch.einsum("hwc,nc->nhw", normed_code, normed_centers)
                 cluster_probs[j] = nn.functional.softmax(inner_products * 2, dim=0)
         else:

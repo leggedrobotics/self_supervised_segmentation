@@ -122,7 +122,7 @@ def my_app(cfg: DictConfig) -> None:
                 if cfg.cluster_stego_by_image:
                     t.tic()
                     clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf_cluster=cfg.run_crf, use_crf_linear=False,
-                                                    image_clustering=True, n_image_clusters=n_clusters)
+                                                    image_clustering=True)
                     time_val = t.tocvalue()
                     model_cluster_metrics[model_index].update(clusters.cuda(), label, features, code, time_val)
                     if cfg.save_vis:
