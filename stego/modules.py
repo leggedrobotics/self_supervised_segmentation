@@ -8,6 +8,8 @@ import torchvision.transforms.functional as VF
 from kornia.core import Tensor
 from kornia.testing import KORNIA_CHECK, KORNIA_CHECK_SHAPE
 
+from stego.utils import *
+
 
 class SegmentationHead(nn.Module):
     """

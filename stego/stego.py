@@ -89,6 +89,7 @@ class STEGO(pl.LightningModule):
         backbone_feats = self.backbone(img)
         return backbone_feats, self.segmentation_head(backbone_feats)
 
+
     def get_code(self, img):
         """
         Returns segmentation features for a given image.
@@ -99,6 +100,7 @@ class STEGO(pl.LightningModule):
         code = (code1 + code2.flip(dims=[3]))/2
         return code
     
+
     def postprocess_crf(self, img, probs):
         """
         Performs the CRF postprocessing step on the given image and a set of predicted class probabilities.
@@ -111,20 +113,19 @@ class STEGO(pl.LightningModule):
             pred[j] = x
         return pred.int()
 
-    def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False):
+
+    def postprocess_cluster(self, code, img, use_crf=True, image_clustering=False):
         """
-        Postprocessing of STEGO.
-        For the given features, the cluster and linear probes are run, followed by CRF (if enabled).
+        Cluster probe postprocessing of STEGO.
+        For the given features, the cluster probe is run, followed by CRF (if enabled).
         If enabled, performs the K-means clustering only of the given segmentation features.
 
         Arguments:
         - code - STEGO's segmentation features.
         - img - input image.
-        - use_crf_cluster - enables CRF on the image and class probabilities from the cluster probe.
-        - use_crf_linear - enables CRF on the image and class probabilities from the linear probe.
+        - use_crf - enables CRF on the image and class probabilities from the cluster probe.
         - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
         """
-
         orig_code = code
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         if image_clustering:
@@ -142,17 +143,46 @@ class STEGO(pl.LightningModule):
                 cluster_probs[j] = nn.functional.softmax(inner_products * 2, dim=0)
         else:
             cluster_probs = self.cluster_probe(code, 2, log_probs=True)
-        linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
-        cluster_probs = cluster_probs.cpu()
-        linear_probs = linear_probs.cpu()
-        if use_crf_cluster:
+        if use_crf:
             cluster_preds = self.postprocess_crf(img, cluster_probs)
         else:
             cluster_preds = cluster_probs.argmax(1)
-        if use_crf_linear:
+        return cluster_preds
+
+
+    def postprocess_linear(self, code, img, use_crf=True):
+        """
+        Linear probe postprocessing of STEGO.
+        For the given features, the linear probe is run, followed by CRF (if enabled).
+
+        Arguments:
+        - code - STEGO's segmentation features.
+        - img - input image.
+        - use_crf - enables CRF on the image and class probabilities from the linear probe.
+        """
+        linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
+        if use_crf:
             linear_preds = self.postprocess_crf(img, linear_probs)
         else:
             linear_preds = linear_probs.argmax(1)
+        return linear_preds
+
+
+    def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False):
+        """
+        Complete postprocessing of STEGO.
+        For the given features, both the cluster and linear probes are run, followed by CRF (if enabled).
+        If enabled, performs the K-means clustering only of the given segmentation features.
+
+        Arguments:
+        - code - STEGO's segmentation features.
+        - img - input image.
+        - use_crf_cluster - enables CRF on the image and class probabilities from the cluster probe.
+        - use_crf_linear - enables CRF on the image and class probabilities from the linear probe.
+        - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
+        """
+        cluster_preds = self.postprocess_cluster(code, img, use_crf_cluster, image_clustering)
+        linear_preds = self.postprocess_linear(code, img, use_crf_linear)
         return cluster_preds, linear_preds
 
 
