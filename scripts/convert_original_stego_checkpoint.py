@@ -23,7 +23,8 @@ import copy
 
 import stego.backbones.dino.vision_transformer as vits
 from stego.utils import UnsupervisedMetrics, prep_args
-from stego.stego import STEGO, ClusterLookup, ContrastiveCorrelationLoss
+from stego.modules import ClusterLookup, ContrastiveCorrelationLoss
+from stego.stego import STEGO
 
 
 class DinoFeaturizer(nn.Module):
