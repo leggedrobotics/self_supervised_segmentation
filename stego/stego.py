@@ -57,7 +57,7 @@ class STEGO(pl.LightningModule):
         self.n_image_clusters = n_image_clusters
         if n_image_clusters == 0:
             self.n_image_clusters = n_classes
-        self.kmeans = KMeans(num_clusters=self.n_image_clusters, cluster_centers=None, distance_metric='cosine')
+        self.kmeans = KMeans(num_clusters=self.n_image_clusters, cluster_centers=None, distance_metric='cosine', max_iterations=100)
 
         self.cd_hist = torch.zeros(40)
 
@@ -118,7 +118,7 @@ class STEGO(pl.LightningModule):
         """
         Cluster probe postprocessing of STEGO.
         For the given features, the cluster probe is run, followed by CRF (if enabled).
-        If enabled, performs the K-means clustering only of the given segmentation features.
+        If enabled, performs the K-means clustering only of the segmentation features in the given batch.
 
         Arguments:
         - code - STEGO's segmentation features.
@@ -126,27 +126,21 @@ class STEGO(pl.LightningModule):
         - use_crf - enables CRF on the image and class probabilities from the cluster probe.
         - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
         """
-        orig_code = code
+        orig_code = code.permute(0, 2, 3, 1)
         code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         if image_clustering:
-            cluster_probs = torch.empty((code.shape[0], self.n_image_clusters, code.shape[2], code.shape[3]))
-            for j in range(code.shape[0]):
-                single_code = orig_code[j]
-                normed_code = F.normalize(single_code, dim=0).permute(1, 2, 0)
-                
-                self.kmeans.fit(normed_code)
-                normed_centers = F.normalize(self.kmeans.final_cluster_centers, dim=1)
+            self.kmeans.fit(orig_code.reshape((-1, orig_code.shape[-1])))
 
-                single_code = code[j]
-                normed_code = F.normalize(single_code, dim=0).permute(1, 2, 0)
-                inner_products = torch.einsum("hwc,nc->nhw", normed_code, normed_centers)
-                cluster_probs[j] = nn.functional.softmax(inner_products * 2, dim=0)
+            normed_centers = F.normalize(self.kmeans.final_cluster_centers, dim=1)
+            normed_code = F.normalize(code, dim=1).permute(0, 2, 3, 1)
+            inner_products = torch.einsum("bhwc,nc->bnhw", normed_code, normed_centers)
+            cluster_probs = nn.functional.softmax(inner_products * 2, dim=1)
         else:
             cluster_probs = self.cluster_probe(code, 2, log_probs=True)
         if use_crf:
             cluster_preds = self.postprocess_crf(img, cluster_probs)
         else:
-            cluster_preds = cluster_probs.argmax(1)
+            cluster_preds = cluster_probs.argmax(dim=1)
         return cluster_preds
 
 
@@ -172,7 +166,7 @@ class STEGO(pl.LightningModule):
         """
         Complete postprocessing of STEGO.
         For the given features, both the cluster and linear probes are run, followed by CRF (if enabled).
-        If enabled, performs the K-means clustering only of the given segmentation features.
+        If enabled, performs the K-means clustering only of the segmentation features in the given batch.
 
         Arguments:
         - code - STEGO's segmentation features.

@@ -10,6 +10,9 @@ from kornia.testing import KORNIA_CHECK, KORNIA_CHECK_SHAPE
 
 from stego.utils import *
 
+from pytictoc import TicToc
+
+
 
 class SegmentationHead(nn.Module):
     """
@@ -182,7 +185,6 @@ class KMeans:
         tolerance: float value. the algorithm terminates if the shift in centers is less than tolerance
         max_iterations: number of iterations to run the algorithm for
         distance_metric: {"euclidean", "cosine"}, type of the distance metric to use
-        device: the device to which all tensors are moved to and computed
         seed: number to set torch manual seed for reproducibility
     """
 
@@ -193,7 +195,6 @@ class KMeans:
         tolerance: float = 10e-4,
         max_iterations: int = 0,
         distance_metric = 'euclidean',
-        device = None,
         seed = None,
     ) -> None:
         KORNIA_CHECK(num_clusters != 0, "num_clusters can't be 0")
@@ -206,7 +207,6 @@ class KMeans:
         self.cluster_centers = cluster_centers
         self.tolerance = tolerance
         self.max_iterations = max_iterations
-        self.device = device
 
         if distance_metric == "euclidean":
             self._pairwise_distance = self._pairwise_euclidean_distance
@@ -239,8 +239,8 @@ class KMeans:
         Returns:
             2D Tensor with num_cluster rows
         """
-        num_samples = len(X)
-        perm = torch.randperm(num_samples)
+        num_samples = X.shape[0]
+        perm = torch.randperm(num_samples, device=X.device)
         idx = perm[:num_clusters]
         initial_state = X[idx]
         return initial_state
@@ -286,8 +286,6 @@ class KMeans:
         Args:
             X: 2D input tensor to be clustered
         """
-        # X should have only 2 dimensions
-        X = X.reshape((-1, X.shape[-1]))
         KORNIA_CHECK_SHAPE(X, ["N", "D"])
 
         if self.cluster_centers is None:
@@ -300,8 +298,7 @@ class KMeans:
                 {X.shape[1]} != {self.cluster_centers.shape[1]}",
             )
 
-        X = X.to(self.device)
-        current_centers = self.cluster_centers.to(self.device)
+        current_centers = self.cluster_centers
 
         previous_centers = None
         iteration: int = 0
@@ -314,14 +311,17 @@ class KMeans:
 
             previous_centers = current_centers.clone()
 
-            for index in range(self.num_clusters):
-                selected = torch.nonzero(cluster_assignment == index).squeeze().to(self.device)
-                selected = torch.index_select(X, 0, selected)
-                # edge case when a certain cluster centre has no points assigned to it
-                # just choose a random point as it's update
-                if selected.shape[0] == 0:
-                    selected = X[torch.randint(len(X), (1,))]
-                current_centers[index] = selected.mean(dim=0)
+            one_hot_assignments = torch.nn.functional.one_hot(cluster_assignment, self.num_clusters).float()
+            sum_points = torch.mm(one_hot_assignments.T, X)
+            num_points = one_hot_assignments.sum(0).unsqueeze(1)
+
+            # Handle empty clusters by replacing them with a random point
+            empty_clusters = (num_points.squeeze() == 0)
+            random_points = X[torch.randint(len(X), (torch.sum(empty_clusters),))]
+            sum_points[empty_clusters, :] = random_points
+            num_points[empty_clusters] = 1
+
+            current_centers = sum_points / num_points
 
             # sum of distance of how much the newly computed clusters have moved from their previous positions
             center_shift = torch.sum(torch.sqrt(torch.sum((current_centers - previous_centers) ** 2, dim=1)))
@@ -354,7 +354,6 @@ class KMeans:
                 {x.shape[1]} != {self.final_cluster_centers.shape[1]}",
         )
 
-        x = x.to(self.device)
         distance = self._pairwise_distance(x, self.final_cluster_centers)
         cluster_assignment = torch.argmin(distance, axis=1)
-        return cluster_assignment
+        return cluster_assignment, distance

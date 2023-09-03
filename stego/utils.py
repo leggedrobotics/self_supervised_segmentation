@@ -236,7 +236,7 @@ class UnsupervisedMetrics(Metric):
 
 
 class WVNMetrics(Metric):
-    def __init__(self, prefix: str, n_clusters: int, feature_dim: int, code_dim: int, dist_sync_on_step=True, save_plots=False, output_dir=None):
+    def __init__(self, prefix: str, n_clusters: int, dist_sync_on_step=True, save_plots=False, output_dir=None):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.prefix = prefix
@@ -287,19 +287,18 @@ class WVNMetrics(Metric):
         pred = cluster_pred[clusters.long()]
         return pred
     
-    def compute_list_metric(self, metric_name, values, metric_dict):
+    def compute_list_metric(self, metric_name, values, metric_dict, print_metrics=False):
         if len(values) == 0:
             return
-        values_np = np.array(values)
-        mean = np.mean(values_np)
-        var = np.var(values_np)
-        metric_dict[self.prefix+"/"+metric_name+"/Mean"] = mean
-        metric_dict[self.prefix+"/"+metric_name+"/Var"] = var
+        value = np.mean(np.array(values))
+        metric_dict[self.prefix+"/"+metric_name] = value
+        if print_metrics:
+            print("\t{}: {}".format(metric_name, value))
         if self.output_dir is not None:
             plot_distributions([values], 100, [self.prefix], metric_name, os.path.join(self.output_dir, self.prefix+"_"+metric_name+'.png'))
 
 
-    def compute(self):
+    def compute(self, print_metrics=False):
         tn = self.stats[0]
         fp = self.stats[1]
         fn = self.stats[2]
@@ -310,10 +309,15 @@ class WVNMetrics(Metric):
 
         metric_dict = {self.prefix + "/IoU": iou.item(), self.prefix + "/Accuracy": acc.item()}
 
-        self.compute_list_metric("Avg_clusters", self.avg_n_clusters, metric_dict)
-        self.compute_list_metric("Feature_var", self.feature_var, metric_dict)
-        self.compute_list_metric("Code_var", self.code_var, metric_dict)
-        self.compute_list_metric("Time", self.time, metric_dict)
+        if print_metrics:
+            print(self.prefix)
+            print("\tIoU: {}".format(iou.item()))
+            print("\tAccuracy: {}".format(acc.item()))
+
+        self.compute_list_metric("Avg_clusters", self.avg_n_clusters, metric_dict, print_metrics)
+        self.compute_list_metric("Feature_var", self.feature_var, metric_dict, print_metrics)
+        self.compute_list_metric("Code_var", self.code_var, metric_dict, print_metrics)
+        self.compute_list_metric("Time", self.time, metric_dict, print_metrics)
 
         values_dict = {"Avg_clusters": self.avg_n_clusters, "Feature_var": self.feature_var, "Code_var": self.code_var, "Time": self.time}
 
