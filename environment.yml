@@ -27,7 +27,7 @@ dependencies:
   - tensorboard==2.4.0
   - future==0.17.1
   - --find-links https://pytorch-geometric.com/whl/torch-1.7.0+cu110.html
-  - kornia
+  - kornia==0.6.8
   - hydra-core
   - wget
   - seaborn
@@ -38,5 +38,5 @@ dependencies:
   - pyDeprecate==0.3.1
   - fast_slic
   - pytictoc
-  - wandb
+  - wandb==0.14.2
 name: stego

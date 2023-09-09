@@ -2,181 +2,17 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 import pytorch_lightning as pl
-import numpy as np
-import pydensecrf.densecrf as dcrf
-import pydensecrf.utils as utils
-import torchvision.transforms.functional as VF
 import omegaconf
 import os
 import wandb
 import matplotlib as plt
 import io
-from sklearn.cluster import KMeans
+
 
 from stego.backbones.backbone import *
 from stego.utils import *
 from stego.data import *
-
-
-class SegmentationHead(nn.Module):
-    """
-    STEGO's segmentation head module.
-    """
-    def __init__(self, input_dim, dim):
-        super().__init__()
-        self.linear = torch.nn.Sequential(torch.nn.Conv2d(input_dim, dim, (1, 1)))
-        self.nonlinear = torch.nn.Sequential(
-            torch.nn.Conv2d(input_dim, input_dim, (1, 1)),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(input_dim, dim, (1, 1)))
-
-    def forward(self, inputs):
-        return self.linear(inputs) + self.nonlinear(inputs)
-
-
-class ClusterLookup(nn.Module):
-    """
-    STEGO's clustering module.
-    Performs cosine distance K-means on the given features.
-    """
-
-    def __init__(self, dim: int, n_classes: int):
-        super(ClusterLookup, self).__init__()
-        self.n_classes = n_classes
-        self.dim = dim
-        self.clusters = torch.nn.Parameter(torch.randn(n_classes, dim))
-
-    def reset_parameters(self):
-        with torch.no_grad():
-            self.clusters.copy_(torch.randn(self.n_classes, self.dim))
-
-    def forward(self, x, alpha, log_probs=False):
-        normed_clusters = F.normalize(self.clusters, dim=1)
-        normed_features = F.normalize(x, dim=1)
-        inner_products = torch.einsum("bchw,nc->bnhw", normed_features, normed_clusters)
-
-        if alpha is None:
-            cluster_probs = F.one_hot(torch.argmax(inner_products, dim=1), self.clusters.shape[0]) \
-                .permute(0, 3, 1, 2).to(torch.float32)
-        else:
-            cluster_probs = nn.functional.softmax(inner_products * alpha, dim=1)
-
-        cluster_loss = -(cluster_probs * inner_products).sum(1).mean()
-        if log_probs:
-            return nn.functional.log_softmax(inner_products * alpha, dim=1)
-        else:
-            return cluster_loss, cluster_probs
-
-
-class ContrastiveCorrelationLoss(nn.Module):
-    """
-    STEGO's correlation loss.
-    """
-
-    def __init__(self, cfg, ):
-        super(ContrastiveCorrelationLoss, self).__init__()
-        self.cfg = cfg
-
-    def standard_scale(self, t):
-        t1 = t - t.mean()
-        t2 = t1 / t1.std()
-        return t2
-
-    def helper(self, f1, f2, c1, c2, shift):
-        with torch.no_grad():
-            # Comes straight from backbone which is currently frozen. this saves mem.
-            fd = tensor_correlation(norm(f1), norm(f2))
-
-            if self.cfg.pointwise:
-                old_mean = fd.mean()
-                fd -= fd.mean([3, 4], keepdim=True)
-                fd = fd - fd.mean() + old_mean
-
-        cd = tensor_correlation(norm(c1), norm(c2))
-
-        if self.cfg.zero_clamp:
-            min_val = 0.0
-        else:
-            min_val = -9999.0
-
-        if self.cfg.stabalize:
-            loss = - cd.clamp(min_val, .8) * (fd - shift)
-        else:
-            loss = - cd.clamp(min_val) * (fd - shift)
-
-        return loss, cd
-
-    def forward(self,
-                orig_feats: torch.Tensor, orig_feats_pos: torch.Tensor,
-                orig_code: torch.Tensor, orig_code_pos: torch.Tensor,
-                ):
-
-        coord_shape = [orig_feats.shape[0], self.cfg.feature_samples, self.cfg.feature_samples, 2]
-        coords1 = torch.rand(coord_shape, device=orig_feats.device) * 2 - 1
-        coords2 = torch.rand(coord_shape, device=orig_feats.device) * 2 - 1
-
-        feats = sample(orig_feats, coords1)
-        code = sample(orig_code, coords1)
-        feats_pos = sample(orig_feats_pos, coords2)
-        code_pos = sample(orig_code_pos, coords2)
-
-        pos_intra_loss, pos_intra_cd = self.helper(
-            feats, feats, code, code, self.cfg.pos_intra_shift)
-        pos_inter_loss, pos_inter_cd = self.helper(
-            feats, feats_pos, code, code_pos, self.cfg.pos_inter_shift)
-
-        neg_losses = []
-        neg_cds = []
-        for i in range(self.cfg.neg_samples):
-            perm_neg = super_perm(orig_feats.shape[0], orig_feats.device)
-            feats_neg = sample(orig_feats[perm_neg], coords2)
-            code_neg = sample(orig_code[perm_neg], coords2)
-            neg_inter_loss, neg_inter_cd = self.helper(
-                feats, feats_neg, code, code_neg, self.cfg.neg_inter_shift)
-            neg_losses.append(neg_inter_loss)
-            neg_cds.append(neg_inter_cd)
-        neg_inter_loss = torch.cat(neg_losses, axis=0)
-        neg_inter_cd = torch.cat(neg_cds, axis=0)
-
-        return (pos_intra_loss.mean(),
-                pos_intra_cd,
-                pos_inter_loss.mean(),
-                pos_inter_cd,
-                neg_inter_loss,
-                neg_inter_cd)
-
-
-class CRF():
-    """
-    Class encapsulating STEGO's CRF postprocessing step.
-    """
-    def __init__(self, cfg):
-        self.cfg = cfg
-
-    def dense_crf(self, image_tensor: torch.FloatTensor, output_logits: torch.FloatTensor) -> torch.FloatTensor:
-        image = np.array(VF.to_pil_image(unnorm(image_tensor)))[:, :, ::-1]
-        H, W = image.shape[:2]
-        image = np.ascontiguousarray(image)
-
-        output_logits = F.interpolate(output_logits.unsqueeze(0), size=(H, W), mode="bilinear",
-                                    align_corners=False).squeeze()
-        output_probs = F.softmax(output_logits, dim=0).cpu().numpy()
-
-        c = output_probs.shape[0]
-        h = output_probs.shape[1]
-        w = output_probs.shape[2]
-
-        U = utils.unary_from_softmax(output_probs)
-        U = np.ascontiguousarray(U)
-
-        d = dcrf.DenseCRF2D(w, h, c)
-        d.setUnaryEnergy(U)
-        d.addPairwiseGaussian(sxy=self.cfg.pos_xy_std, compat=self.cfg.pos_w)
-        d.addPairwiseBilateral(sxy=self.cfg.bi_xy_std, srgb=self.cfg.bi_rgb_std, rgbim=image, compat=self.cfg.bi_w)
-
-        Q = d.inference(self.cfg.crf_max_iter)
-        Q = np.array(Q).reshape((c, h, w))
-        return torch.from_numpy(Q)    
+from stego.modules import *
 
 
 
@@ -185,7 +21,7 @@ class STEGO(pl.LightningModule):
     The main STEGO class.
     """
 
-    def __init__(self, n_classes, cfg=None):
+    def __init__(self, n_classes, n_image_clusters = 0, cfg=None):
         super().__init__()
         if cfg is None:
             with open(os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r") as file:
@@ -218,6 +54,11 @@ class STEGO(pl.LightningModule):
 
         self.crf = CRF(self.cfg)
 
+        self.n_image_clusters = n_image_clusters
+        if n_image_clusters == 0:
+            self.n_image_clusters = n_classes
+        self.kmeans = KMeans(num_clusters=self.n_image_clusters, cluster_centers=None, distance_metric='cosine', max_iterations=100)
+
         self.cd_hist = torch.zeros(40)
 
         self.save_hyperparameters()
@@ -248,6 +89,7 @@ class STEGO(pl.LightningModule):
         backbone_feats = self.backbone(img)
         return backbone_feats, self.segmentation_head(backbone_feats)
 
+
     def get_code(self, img):
         """
         Returns segmentation features for a given image.
@@ -258,6 +100,7 @@ class STEGO(pl.LightningModule):
         code = (code1 + code2.flip(dims=[3]))/2
         return code
     
+
     def postprocess_crf(self, img, probs):
         """
         Performs the CRF postprocessing step on the given image and a set of predicted class probabilities.
@@ -270,11 +113,61 @@ class STEGO(pl.LightningModule):
             pred[j] = x
         return pred.int()
 
-    def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False, n_image_clusters=0):
+
+    def postprocess_cluster(self, code, img, use_crf=True, image_clustering=False):
         """
-        Postprocessing of STEGO.
-        For the given features, the cluster and linear probes are run, followed by CRF (if enabled).
-        If enabled, performs the K-means clustering only of the given segmentation features.
+        Cluster probe postprocessing of STEGO.
+        For the given features, the cluster probe is run, followed by CRF (if enabled).
+        If enabled, performs the K-means clustering only of the segmentation features in the given batch.
+
+        Arguments:
+        - code - STEGO's segmentation features.
+        - img - input image.
+        - use_crf - enables CRF on the image and class probabilities from the cluster probe.
+        - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
+        """
+        orig_code = code.permute(0, 2, 3, 1)
+        code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
+        if image_clustering:
+            self.kmeans.fit(orig_code.reshape((-1, orig_code.shape[-1])))
+
+            normed_centers = F.normalize(self.kmeans.final_cluster_centers, dim=1)
+            normed_code = F.normalize(code, dim=1).permute(0, 2, 3, 1)
+            inner_products = torch.einsum("bhwc,nc->bnhw", normed_code, normed_centers)
+            cluster_probs = nn.functional.softmax(inner_products * 2, dim=1)
+        else:
+            cluster_probs = self.cluster_probe(code, 2, log_probs=True)
+        if use_crf:
+            cluster_preds = self.postprocess_crf(img, cluster_probs)
+        else:
+            cluster_preds = cluster_probs.argmax(dim=1)
+        return cluster_preds
+
+
+    def postprocess_linear(self, code, img, use_crf=True):
+        """
+        Linear probe postprocessing of STEGO.
+        For the given features, the linear probe is run, followed by CRF (if enabled).
+
+        Arguments:
+        - code - STEGO's segmentation features.
+        - img - input image.
+        - use_crf - enables CRF on the image and class probabilities from the linear probe.
+        """
+        code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
+        linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
+        if use_crf:
+            linear_preds = self.postprocess_crf(img, linear_probs)
+        else:
+            linear_preds = linear_probs.argmax(1)
+        return linear_preds
+
+
+    def postprocess(self, code, img, use_crf_cluster=True, use_crf_linear=True, image_clustering=False):
+        """
+        Complete postprocessing of STEGO.
+        For the given features, both the cluster and linear probes are run, followed by CRF (if enabled).
+        If enabled, performs the K-means clustering only of the segmentation features in the given batch.
 
         Arguments:
         - code - STEGO's segmentation features.
@@ -282,31 +175,9 @@ class STEGO(pl.LightningModule):
         - use_crf_cluster - enables CRF on the image and class probabilities from the cluster probe.
         - use_crf_linear - enables CRF on the image and class probabilities from the linear probe.
         - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
-        - n_image_clusters - the number of clusters to use in K-means on the given segmentation features, used if image_clustering is set to True.
         """
-        code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
-        if image_clustering:
-            cluster_probs = torch.empty((code.shape[0], n_image_clusters, code.shape[2], code.shape[3]))
-            for j in range(code.shape[0]):
-                single_code = code[j]
-                normed_code = F.normalize(single_code, dim=0).permute(1, 2, 0)
-                kmeans = KMeans(n_clusters=n_image_clusters, max_iter=100, tol=0.01, random_state=0).fit(normed_code.view(-1, normed_code.shape[-1]).cpu().numpy())
-                normed_centers = F.normalize(torch.from_numpy(kmeans.cluster_centers_), dim=1).cuda()
-                inner_products = torch.einsum("hwc,nc->nhw", normed_code, normed_centers)
-                cluster_probs[j] = nn.functional.softmax(inner_products * 2, dim=0)
-        else:
-            cluster_probs = self.cluster_probe(code, 2, log_probs=True)
-        linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
-        cluster_probs = cluster_probs.cpu()
-        linear_probs = linear_probs.cpu()
-        if use_crf_cluster:
-            cluster_preds = self.postprocess_crf(img, cluster_probs)
-        else:
-            cluster_preds = cluster_probs.argmax(1)
-        if use_crf_linear:
-            linear_preds = self.postprocess_crf(img, linear_probs)
-        else:
-            linear_preds = linear_probs.argmax(1)
+        cluster_preds = self.postprocess_cluster(code, img, use_crf_cluster, image_clustering)
+        linear_preds = self.postprocess_linear(code, img, use_crf_linear)
         return cluster_preds, linear_preds
 
 

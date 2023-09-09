@@ -84,10 +84,10 @@ def my_app(cfg: DictConfig) -> None:
     for model in models:
         model.eval().cuda()
 
-    model_metrics = [WVNMetrics("STEGO_"+str(i), i, 768, 70, save_plots=cfg.save_plots, output_dir=plot_dir) for i in cfg.stego_n_clusters]
-    slic_metrics = [WVNMetrics("SLIC_"+str(i), i, 768, 70, save_plots=cfg.save_plots, output_dir=plot_dir) for i in cfg.slic_n_clusters]
+    model_metrics = [WVNMetrics("STEGO_"+str(i), i, save_plots=cfg.save_plots, output_dir=plot_dir) for i in cfg.stego_n_clusters]
+    slic_metrics = [WVNMetrics("SLIC_"+str(i), i, save_plots=cfg.save_plots, output_dir=plot_dir) for i in cfg.slic_n_clusters]
     if cfg.cluster_stego_by_image:
-        model_cluster_metrics = [WVNMetrics("STEGO_code_"+str(i), i, 768, 70, save_plots=cfg.save_plots, output_dir=plot_dir) for i in cfg.stego_n_clusters]
+        model_cluster_metrics = [WVNMetrics("STEGO_code_"+str(i), i, save_plots=cfg.save_plots, output_dir=plot_dir) for i in cfg.stego_n_clusters]
 
     t = TicToc()
     feature_times = []
@@ -101,8 +101,8 @@ def my_app(cfg: DictConfig) -> None:
             if cfg.save_vis:
                 image = Image.fromarray((kornia.utils.tensor_to_image(unnorm(img).cpu())*255).astype(np.uint8))
                 image.save(join(result_dir, "img", str(i)+".png"))
-                img = label.cpu().detach().numpy().astype(np.uint8)
-                image = Image.fromarray(img)
+                label_img = label.cpu().detach().numpy().astype(np.uint8)
+                image = Image.fromarray(label_img)
                 image.save(join(result_dir, "label", str(i)+".png"))
 
             features = None
@@ -113,20 +113,19 @@ def my_app(cfg: DictConfig) -> None:
                 t.tic()
                 features, code = model(batch["img"].cuda())
                 feature_times.append(t.tocvalue(restart=True))
-                clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf_cluster=cfg.run_crf, use_crf_linear=False)
+                clusters = model.postprocess_cluster(code=code, img=batch["img"], use_crf=cfg.run_crf)
                 time_val = t.tocvalue()
-                model_metrics[model_index].update(clusters.cuda(), label, features, code, time_val)
+                model_metrics[model_index].update(clusters, label, features, code, time_val)
                 if cfg.save_vis:
-                    image = Image.fromarray((clusters.squeeze().numpy()).astype(np.uint8))
+                    image = Image.fromarray((clusters.squeeze().cpu().numpy()).astype(np.uint8))
                     image.save(join(result_dir, "stego_"+str(n_clusters), str(i)+".png"))
                 if cfg.cluster_stego_by_image:
                     t.tic()
-                    clusters, _ = model.postprocess(code=code, img=batch["img"], use_crf_cluster=cfg.run_crf, use_crf_linear=False,
-                                                    image_clustering=True, n_image_clusters=n_clusters)
+                    clusters = model.postprocess_cluster(code=code, img=batch["img"], use_crf=cfg.run_crf, image_clustering=True)
                     time_val = t.tocvalue()
-                    model_cluster_metrics[model_index].update(clusters.cuda(), label, features, code, time_val)
+                    model_cluster_metrics[model_index].update(clusters, label, features, code, time_val)
                     if cfg.save_vis:
-                        image = Image.fromarray((clusters.squeeze().numpy()).astype(np.uint8))
+                        image = Image.fromarray((clusters.squeeze().cpu().numpy()).astype(np.uint8))
                         image.save(join(result_dir, "stego_code_"+str(n_clusters), str(i)+".png"))
 
             for model_index, model in enumerate(slic_models):
@@ -145,21 +144,20 @@ def my_app(cfg: DictConfig) -> None:
 
     model_values = []
     for metric in model_metrics:
-        results, values = metric.compute()
-        print(results)
+        results, values = metric.compute(print_metrics=True)
         model_values.append(values)
+    print()
 
     model_cluster_values = []
     if cfg.cluster_stego_by_image:
         for metric in model_cluster_metrics:
-            results, values = metric.compute()
-            print(results)
+            results, values = metric.compute(print_metrics=True)
             model_cluster_values.append(values)
+        print()
 
     slic_values = []
     for metric in slic_metrics:
-        results, values = metric.compute()
-        print(results)
+        results, values = metric.compute(print_metrics=True)
         slic_values.append(values)
 
     time_now = int(time.time())
