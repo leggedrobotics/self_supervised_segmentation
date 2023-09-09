@@ -10,8 +10,6 @@ from kornia.testing import KORNIA_CHECK, KORNIA_CHECK_SHAPE
 
 from stego.utils import *
 
-from pytictoc import TicToc
-
 
 
 class SegmentationHead(nn.Module):

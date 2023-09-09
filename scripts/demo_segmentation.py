@@ -51,6 +51,8 @@ def my_app(cfg: DictConfig) -> None:
             img = img.cuda()
             code = model.get_code(img)
             cluster_crf, linear_crf = model.postprocess(code=code, img=img, use_crf_cluster=cfg.run_crf, use_crf_linear=cfg.run_crf)
+            cluster_crf = cluster_crf.cpu()
+            linear_crf = linear_crf.cpu()
             for j in range(img.shape[0]):
                 new_name = ".".join(name[j].split(".")[:-1]) + ".png"
                 Image.fromarray(cmap[linear_crf[j]].astype(np.uint8)).save(os.path.join(result_dir, "linear", new_name))

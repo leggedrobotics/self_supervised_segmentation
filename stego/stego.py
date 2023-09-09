@@ -154,6 +154,7 @@ class STEGO(pl.LightningModule):
         - img - input image.
         - use_crf - enables CRF on the image and class probabilities from the linear probe.
         """
+        code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
         linear_probs = torch.log_softmax(self.linear_probe(code), dim=1)
         if use_crf:
             linear_preds = self.postprocess_crf(img, linear_probs)
