@@ -2,7 +2,6 @@ import collections
 import torch
 import torch.nn.functional as F
 from torch.utils.data._utils.collate import np_str_obj_array_pattern, default_collate_err_msg_format
-from torch._six import string_classes
 from torchvision import transforms as T
 from torchmetrics import Metric
 import numpy as np
@@ -355,7 +354,7 @@ def flexible_collate(batch):
         return torch.tensor(batch, dtype=torch.float64)
     elif isinstance(elem, int):
         return torch.tensor(batch)
-    elif isinstance(elem, string_classes):
+    elif isinstance(elem, str):
         return batch
     elif isinstance(elem, collections.abc.Mapping):
         return {key: flexible_collate([d[key] for d in batch]) for key in elem}

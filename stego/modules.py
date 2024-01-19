@@ -6,7 +6,7 @@ import pydensecrf.densecrf as dcrf
 import pydensecrf.utils as utils
 import torchvision.transforms.functional as VF
 from kornia.core import Tensor
-from kornia.testing import KORNIA_CHECK, KORNIA_CHECK_SHAPE
+from kornia.core.check import KORNIA_CHECK, KORNIA_CHECK_SHAPE
 
 from stego.utils import *
 
