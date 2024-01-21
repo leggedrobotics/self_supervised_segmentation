@@ -25,13 +25,15 @@ def convert_rgb_label(label, cmap):
     return np.unique(label, axis=-1).squeeze()
 
 
-def preprocess_and_copy_image(input_name, output_name, is_label=False, rgb_label=False, cmap=None):
+def preprocess_and_copy_image(
+    input_name, output_name, is_label=False, rgb_label=False, cmap=None
+):
     if os.path.isfile(output_name):
         return
     if is_label and rgb_label:
         if cmap is None:
             raise ValueError("No colormap provided to convert the RGB label")
-        image = Image.open(input_name).convert('RGB')
+        image = Image.open(input_name).convert("RGB")
         img = np.array(image)
         img = convert_rgb_label(img, cmap)
         image = Image.fromarray(img)

@@ -34,20 +34,27 @@ from tqdm import tqdm
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR="/cluster/scratch/plibera"
-INPUT_NAME="freiburg_forest_preprocessed"
-OUTPUT_NAME="freiburg_forest_preprocessed_trav"
+DATA_DIR = "/cluster/scratch/plibera"
+INPUT_NAME = "freiburg_forest_preprocessed"
+OUTPUT_NAME = "freiburg_forest_preprocessed_trav"
 
 
-FF_CMAP = np.array([(0, 0, 0),       # Object
-                    (170, 170, 170), # Road
-                    (0, 255, 0),     # Grass
-                    (102, 102, 51),  # Vegetation
-                    (0, 120, 255),   # Sky
-                    (0, 60, 0),      # Tree (separate color present in the dataset, but assigned to class Vegetation in the dataset's official readme)
-                    ])
+FF_CMAP = np.array(
+    [
+        (0, 0, 0),  # Object
+        (170, 170, 170),  # Road
+        (0, 255, 0),  # Grass
+        (102, 102, 51),  # Vegetation
+        (0, 120, 255),  # Sky
+        (
+            0,
+            60,
+            0,
+        ),  # Tree (separate color present in the dataset, but assigned to class Vegetation in the dataset's official readme)
+    ]
+)
 
-TRAVERSABLE_IDS = [1, 2] # Road and Grass
+TRAVERSABLE_IDS = [1, 2]  # Road and Grass
 
 
 def preprocess_and_save_trav_label(input_name, output_name, traversable_ids):
@@ -57,7 +64,7 @@ def preprocess_and_save_trav_label(input_name, output_name, traversable_ids):
     img = np.array(image)
     label = np.zeros(img.shape)
     for id in traversable_ids:
-        label = np.where(img==id, 1, label)
+        label = np.where(img == id, 1, label)
     image = Image.fromarray(label.astype(np.uint8))
     image.save(output_name)
 
@@ -67,10 +74,16 @@ def preprocess_samples(input_dir, output_dir, subset, input_subset):
     label_names = os.listdir(join(input_dir, "labels", input_subset))
     for label_name in tqdm(label_names):
         sample_name = os.path.splitext(label_name)[0]
-        img_path = join(input_dir, "imgs", input_subset, sample_name+".jpg")
+        img_path = join(input_dir, "imgs", input_subset, sample_name + ".jpg")
         label_path = join(input_dir, "labels", input_subset, label_name)
-        preprocess_and_copy_image(img_path, join(output_dir, "imgs", subset, sample_name+".jpg"), False)
-        preprocess_and_save_trav_label(label_path, join(output_dir, "labels", subset, sample_name+".png"), TRAVERSABLE_IDS)
+        preprocess_and_copy_image(
+            img_path, join(output_dir, "imgs", subset, sample_name + ".jpg"), False
+        )
+        preprocess_and_save_trav_label(
+            label_path,
+            join(output_dir, "labels", subset, sample_name + ".png"),
+            TRAVERSABLE_IDS,
+        )
 
 
 def main():

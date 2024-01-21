@@ -28,12 +28,12 @@ from tqdm import tqdm
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR="/scratch/tmp.17524104.plibera"
-INPUT_NAME="cocostuff_preprocessed"
-OUTPUT_NAME="cocostuff_curated"
+DATA_DIR = "/scratch/tmp.17524104.plibera"
+INPUT_NAME = "cocostuff_preprocessed"
+OUTPUT_NAME = "cocostuff_curated"
 
-TRAIN_SAMPLES_FILE="/scratch/tmp.17524104.plibera/cocostuff/curated/train2017/Coco164kFull_Stuff_Coarse.txt"
-VAL_SAMPLES_FILE="/scratch/tmp.17524104.plibera/cocostuff/curated/val2017/Coco164kFull_Stuff_Coarse.txt"
+TRAIN_SAMPLES_FILE = "/scratch/tmp.17524104.plibera/cocostuff/curated/train2017/Coco164kFull_Stuff_Coarse.txt"
+VAL_SAMPLES_FILE = "/scratch/tmp.17524104.plibera/cocostuff/curated/val2017/Coco164kFull_Stuff_Coarse.txt"
 
 
 def preprocess_samples(input_dir, output_dir, subset, input_subset, sample_file):
@@ -50,8 +50,8 @@ def preprocess_samples(input_dir, output_dir, subset, input_subset, sample_file)
     for i, sample_name in tqdm(enumerate(sample_names)):
         img_path = image_files[i]
         label_path = label_files[i]
-        os.link(img_path, join(output_dir, "imgs", subset, sample_name+".jpg"))
-        os.link(label_path, join(output_dir, "labels", subset, sample_name+".png"))
+        os.link(img_path, join(output_dir, "imgs", subset, sample_name + ".jpg"))
+        os.link(label_path, join(output_dir, "labels", subset, sample_name + ".png"))
 
 
 def main():

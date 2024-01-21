@@ -23,10 +23,9 @@ import seaborn as sns
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
-from stego.stego import STEGO
+from stego.stego import Stego
 from stego.utils import *
 from stego.data import ContrastiveSegDataset
-
 
 
 @hydra.main(config_path="cfg", config_name="train_config.yaml")
@@ -37,9 +36,9 @@ def my_app(cfg: DictConfig) -> None:
     seed_everything(seed=0)
 
     if cfg.model_path is not None:
-        model = STEGO.load_from_checkpoint(cfg.model_path).cuda()
+        model = Stego.load_from_checkpoint(cfg.model_path).cuda()
     else:
-        model = STEGO(cfg.num_classes).cuda()
+        model = Stego(cfg.num_classes).cuda()
 
     if cfg.reset_clusters:
         model.reset_clusters(cfg.num_classes, cfg.extra_clusters)
@@ -54,7 +53,7 @@ def my_app(cfg: DictConfig) -> None:
         resolution=cfg.resolution,
         num_neighbors=cfg.num_neighbors,
         pos_images=True,
-        pos_labels=True
+        pos_labels=True,
     )
 
     val_dataset = ContrastiveSegDataset(
@@ -64,13 +63,27 @@ def my_app(cfg: DictConfig) -> None:
         transform=get_transform(cfg.resolution, False, "center"),
         target_transform=get_transform(cfg.resolution, True, "center"),
         model_type=model.backbone_name,
-        resolution=cfg.resolution
+        resolution=cfg.resolution,
     )
 
-    train_loader = DataLoader(train_dataset, cfg.batch_size, shuffle=True, num_workers=cfg.num_workers, pin_memory=True)
-    val_loader = DataLoader(val_dataset, cfg.batch_size, shuffle=False, num_workers=cfg.num_workers, pin_memory=True)
+    train_loader = DataLoader(
+        train_dataset,
+        cfg.batch_size,
+        shuffle=True,
+        num_workers=cfg.num_workers,
+        pin_memory=True,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        cfg.batch_size,
+        shuffle=False,
+        num_workers=cfg.num_workers,
+        pin_memory=True,
+    )
 
-    wandb_logger = WandbLogger(project=cfg.wandb_project, name=cfg.wandb_name, log_model=cfg.wandb_log_model)
+    wandb_logger = WandbLogger(
+        project=cfg.wandb_project, name=cfg.wandb_name, log_model=cfg.wandb_log_model
+    )
 
     trainer = Trainer(
         logger=wandb_logger,
@@ -86,7 +99,7 @@ def my_app(cfg: DictConfig) -> None:
             )
         ],
         gpus=1,
-        val_check_interval=cfg.val_check_interval
+        val_check_interval=cfg.val_check_interval,
     )
     trainer.fit(model, train_loader, val_loader)
 
