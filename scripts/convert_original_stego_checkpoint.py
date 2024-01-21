@@ -14,8 +14,8 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
-import torch.multiprocessing
 from torch.utils.data import DataLoader, Dataset
+import torch.multiprocessing
 from torch import nn
 import os
 import omegaconf
@@ -26,6 +26,17 @@ from stego.utils import UnsupervisedMetrics, prep_args
 from stego.modules import ClusterLookup, ContrastiveCorrelationLoss
 from stego.stego import STEGO
 
+
+class RandomDataset(Dataset):
+    def __init__(self, length: int, size: tuple):
+        self.len = length
+        self.data = torch.randn(length, *size)
+
+    def __getitem__(self, index: int) -> torch.Tensor:
+        return self.data[index]
+
+    def __len__(self) -> int:
+        return self.len
 
 class DinoFeaturizer(nn.Module):
     """
@@ -234,7 +245,7 @@ def my_app(cfg: DictConfig) -> None:
         stego.segmentation_head.nonlinear = copy.deepcopy(model.net.cluster2)
 
     trainer = Trainer(enable_checkpointing=False, max_steps=0)
-    trainer.fit(stego, train_dataloader=DataLoader(Dataset()))
+    trainer.predict(stego, RandomDataset(1, (1, 3, 224, 224)))
     trainer.save_checkpoint(cfg.output_path)
 
 

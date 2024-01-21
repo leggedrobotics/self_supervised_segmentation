@@ -1,6 +1,6 @@
 image_dir: "/cluster/home/plibera/images"
 output_root: "/cluster/home/plibera/outputs/preds"
-model_path: "/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5.ckpt"
+model_path: "/root/catkin_ws/src/self_supervised_segmentation/scripts/models/stego_cocostuff27_vit_base_5_cluster_linear_fine_tuning.ckpt"
 experiment_name: "forest_youtube_val"
 resolution: 320
 

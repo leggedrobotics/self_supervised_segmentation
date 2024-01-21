@@ -6,8 +6,7 @@ dropout_p: 0.1 # Dropout probability on backbone output, clamped to [0,1]. For t
 pretrained_weights: 
 
 # Head
-dim: 70
-
+dim: 90 # Note: Piotr used 70, but the original STEGO model uses 90
 # Clustering
 extra_clusters: 0
 

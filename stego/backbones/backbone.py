@@ -13,6 +13,9 @@ def get_backbone(cfg):
     After implementing the Backbone class for your backbone, add it to be returned from this function with a desired named.
     The backbone can then be used by specifying its name in the STEGO configuration file.
     """
+    if not hasattr(cfg, "backbone"):
+        raise ValueError("Could not find 'backbone' option in the config file. Please check it")
+
     if cfg.backbone == "dino":
         return DinoViT(cfg)
     elif cfg.backbone == "dinov2":

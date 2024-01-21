@@ -29,10 +29,10 @@ class STEGO(pl.LightningModule):
                 cfg = self.cfg
         else:
             self.cfg = cfg
+        print(self.cfg)
         self.dim = self.cfg.dim
         self.automatic_optimization = False
         self.n_classes = n_classes
-        self.backbone_name = self.cfg.backbone
         self.backbone = get_backbone(self.cfg)
         self.full_backbone_name = self.backbone.get_backbone_name()
         self.backbone.eval()
@@ -281,8 +281,8 @@ class STEGO(pl.LightningModule):
                 "cluster_preds": cluster_preds[:self.cfg.val_n_imgs].detach().cpu(),
                 "label": label[:self.cfg.val_n_imgs].detach().cpu()}
 
-    def validation_epoch_end(self, outputs) -> None:
-        super().validation_epoch_end(outputs)
+    def on_validation_epoch_end(self, outputs) -> None:
+        super().on_validation_epoch_end(outputs)
         with torch.no_grad():
             self.linear_metrics.reset()
             self.cluster_metrics.reset()

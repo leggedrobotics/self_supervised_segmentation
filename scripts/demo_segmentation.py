@@ -32,7 +32,6 @@ def my_app(cfg: DictConfig) -> None:
     os.makedirs(os.path.join(result_dir, "linear"), exist_ok=True)
 
     model = STEGO.load_from_checkpoint(cfg.model_path)
-    print(OmegaConf.to_yaml(model.cfg))
 
     dataset = UnlabeledImageFolder(
         root=cfg.image_dir,
@@ -57,8 +56,6 @@ def my_app(cfg: DictConfig) -> None:
                 new_name = ".".join(name[j].split(".")[:-1]) + ".png"
                 Image.fromarray(cmap[linear_crf[j]].astype(np.uint8)).save(os.path.join(result_dir, "linear", new_name))
                 Image.fromarray(cmap[cluster_crf[j]].astype(np.uint8)).save(os.path.join(result_dir, "cluster", new_name))
-
-
 
 if __name__ == "__main__":
     prep_args()
