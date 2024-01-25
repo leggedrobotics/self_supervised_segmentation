@@ -136,7 +136,7 @@ python scripts/convert_original_stego_checkpoint.py
 
 ### Precompute KNNs
 
-To use a preprocessed dataset with a selected model and at a selected resolution, the `precopmute_knns.py` script needs to be run with the selected parameters and model.
+To use a preprocessed dataset with a selected model and at a selected resolution, the `precompute_knns.py` script needs to be run with the selected parameters and model.
 This will create the nearest neighbors file in a separate subdirectory `nns` of the selected dataset.
 Adjust the parameters in `scripts/cfg/knn_config.yaml` and run:
 ```
