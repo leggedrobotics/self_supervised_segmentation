@@ -9,10 +9,10 @@ import matplotlib as plt
 import io
 
 
-from stego.backbones.backbone import *
-from stego.utils import *
-from stego.data import *
-from stego.modules import *
+from stego.backbones.backbone import get_backbone
+from stego.utils import UnsupervisedMetrics
+from stego.data import Image
+from stego.modules import SegmentationHead, ClusterLookup, ContrastiveCorrelationLoss, CRF, KMeans
 
 
 class Stego(pl.LightningModule):
@@ -23,14 +23,11 @@ class Stego(pl.LightningModule):
     def __init__(self, n_classes, n_image_clusters=0, cfg=None):
         super().__init__()
         if cfg is None:
-            with open(
-                os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r"
-            ) as file:
+            with open(os.path.join(os.path.dirname(__file__), "cfg/model_config.yaml"), "r") as file:
                 self.cfg = omegaconf.OmegaConf.load(file)
                 cfg = self.cfg
         else:
             self.cfg = cfg
-        print(self.cfg)
         self.dim = self.cfg.dim
         self.automatic_optimization = False
         self.n_classes = n_classes
@@ -40,14 +37,10 @@ class Stego(pl.LightningModule):
         self.backbone_dim = self.backbone.get_output_feat_dim()
         self.segmentation_head = SegmentationHead(self.backbone_dim, self.dim)
 
-        self.cluster_probe = ClusterLookup(
-            self.dim, self.n_classes + self.cfg.extra_clusters
-        )
+        self.cluster_probe = ClusterLookup(self.dim, self.n_classes + self.cfg.extra_clusters)
         self.linear_probe = nn.Conv2d(self.dim, n_classes, (1, 1))
 
-        self.cluster_metrics = UnsupervisedMetrics(
-            "test/cluster/", n_classes, self.cfg.extra_clusters, True
-        )
+        self.cluster_metrics = UnsupervisedMetrics("test/cluster/", n_classes, self.cfg.extra_clusters, True)
         self.linear_metrics = UnsupervisedMetrics("test/linear/", n_classes, 0, False)
 
         self.linear_probe_loss_fn = torch.nn.CrossEntropyLoss()
@@ -76,24 +69,16 @@ class Stego(pl.LightningModule):
         Resets STEGO's cluster and linear probes, possibly with a different number of classes and extra clusters for the cluster probe.
         """
         self.cluster_probe = ClusterLookup(self.dim, n_classes + extra_clusters)
-        self.cluster_metrics = UnsupervisedMetrics(
-            "test/cluster/", n_classes, extra_clusters, True
-        )
+        self.cluster_metrics = UnsupervisedMetrics("test/cluster/", n_classes, extra_clusters, True)
         self.linear_probe = nn.Conv2d(self.dim, n_classes, (1, 1))
         self.linear_metrics = UnsupervisedMetrics("test/linear/", n_classes, 0, False)
         self.n_classes = n_classes
 
     def configure_optimizers(self):
-        main_params = list(self.backbone.parameters()) + list(
-            self.segmentation_head.parameters()
-        )
+        main_params = list(self.backbone.parameters()) + list(self.segmentation_head.parameters())
         net_optim = torch.optim.Adam(main_params, lr=self.cfg.lr)
-        linear_probe_optim = torch.optim.Adam(
-            list(self.linear_probe.parameters()), lr=self.cfg.linear_lr
-        )
-        cluster_probe_optim = torch.optim.Adam(
-            list(self.cluster_probe.parameters()), lr=self.cfg.cluster_lr
-        )
+        linear_probe_optim = torch.optim.Adam(list(self.linear_probe.parameters()), lr=self.cfg.linear_lr)
+        cluster_probe_optim = torch.optim.Adam(list(self.cluster_probe.parameters()), lr=self.cfg.cluster_lr)
         return net_optim, linear_probe_optim, cluster_probe_optim
 
     def forward(self, img):
@@ -189,9 +174,7 @@ class Stego(pl.LightningModule):
         - use_crf_linear - enables CRF on the image and class probabilities from the linear probe.
         - image_clustering - enables per-image clustering. If True, STEGO's cluster probe is ignored and K-means is run on the given segmentation features to produce the cluster probabilities,
         """
-        cluster_preds = self.postprocess_cluster(
-            code, img, use_crf_cluster, image_clustering
-        )
+        cluster_preds = self.postprocess_cluster(code, img, use_crf_cluster, image_clustering)
         linear_preds = self.postprocess_linear(code, img, use_crf_linear)
         return cluster_preds, linear_preds
 
@@ -227,15 +210,9 @@ class Stego(pl.LightningModule):
         pos_intra_loss = pos_intra_loss.mean()
         pos_inter_loss = pos_inter_loss.mean()
 
-        self.cd_hist = torch.add(
-            self.cd_hist, torch.histc(pos_intra_cd.cpu(), bins=40, min=-1, max=1)
-        )
-        self.cd_hist = torch.add(
-            self.cd_hist, torch.histc(pos_inter_cd.cpu(), bins=40, min=-1, max=1)
-        )
-        self.cd_hist = torch.add(
-            self.cd_hist, torch.histc(neg_inter_cd.cpu(), bins=40, min=-1, max=1)
-        )
+        self.cd_hist = torch.add(self.cd_hist, torch.histc(pos_intra_cd.cpu(), bins=40, min=-1, max=1))
+        self.cd_hist = torch.add(self.cd_hist, torch.histc(pos_inter_cd.cpu(), bins=40, min=-1, max=1))
+        self.cd_hist = torch.add(self.cd_hist, torch.histc(neg_inter_cd.cpu(), bins=40, min=-1, max=1))
 
         self.log("loss/pos_intra", pos_intra_loss)
         self.log("loss/pos_inter", pos_inter_loss)
@@ -256,13 +233,9 @@ class Stego(pl.LightningModule):
         detached_code = torch.clone(code.detach())
 
         linear_logits = self.linear_probe(detached_code)
-        linear_logits = F.interpolate(
-            linear_logits, label.shape[-2:], mode="bilinear", align_corners=False
-        )
+        linear_logits = F.interpolate(linear_logits, label.shape[-2:], mode="bilinear", align_corners=False)
         linear_logits = linear_logits.permute(0, 2, 3, 1).reshape(-1, self.n_classes)
-        linear_loss = self.linear_probe_loss_fn(
-            linear_logits[mask], flat_label[mask]
-        ).mean()
+        linear_loss = self.linear_probe_loss_fn(linear_logits[mask], flat_label[mask]).mean()
         loss += linear_loss
         self.log("loss/linear", linear_loss, **log_args)
 
@@ -285,9 +258,7 @@ class Stego(pl.LightningModule):
 
         with torch.no_grad():
             code = self.forward(img)[1]
-            code = F.interpolate(
-                code, label.shape[-2:], mode="bilinear", align_corners=False
-            )
+            code = F.interpolate(code, label.shape[-2:], mode="bilinear", align_corners=False)
 
             linear_preds = self.linear_probe(code)
             linear_preds = linear_preds.argmax(1)
@@ -345,9 +316,7 @@ class Stego(pl.LightningModule):
         img_buf = io.BytesIO()
         plt.savefig(img_buf, format="png")
         hist_img = Image.open(img_buf)
-        hist_vis = wandb.Image(
-            hist_img, caption="Learned Feature Similarity Distribution"
-        )
+        hist_vis = wandb.Image(hist_img, caption="Learned Feature Similarity Distribution")
         self.logger.experiment.log({"Histogram": hist_vis})
         img_buf.close()
         self.cd_hist = torch.zeros(40)
