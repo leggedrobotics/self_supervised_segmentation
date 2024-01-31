@@ -20,8 +20,8 @@ from tqdm import tqdm
 import os
 import numpy as np
 
-from stego.utils import prep_args, create_cityscapes_colormap, flexible_collate, get_transform
-from stego.data import UnlabeledImageFolder
+from stego.utils import prep_args, flexible_collate, get_transform
+from stego.data import UnlabeledImageFolder, create_cityscapes_colormap
 from stego.stego import Stego
 
 

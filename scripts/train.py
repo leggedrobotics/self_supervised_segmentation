@@ -15,10 +15,10 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 # import pytorch_lightning as pl
+from pytorch_lightning import seed_everything
 from pytorch_lightning import Trainer
 
 # from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities.seed import seed_everything
 
 # import torch.multiprocessing
 from pytorch_lightning.callbacks import ModelCheckpoint
