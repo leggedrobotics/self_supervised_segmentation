@@ -24,10 +24,13 @@ import math
 import random
 import datetime
 import subprocess
+import warnings
+import argparse
 from collections import defaultdict, deque
 
 import numpy as np
 import torch
+from torch import Tensor
 from torch import nn
 import torch.distributed as dist
 from PIL import ImageFilter, ImageOps
@@ -48,11 +51,7 @@ class GaussianBlur(object):
         if not do_it:
             return img
 
-        return img.filter(
-            ImageFilter.GaussianBlur(
-                radius=random.uniform(self.radius_min, self.radius_max)
-            )
-        )
+        return img.filter(ImageFilter.GaussianBlur(radius=random.uniform(self.radius_min, self.radius_max)))
 
 
 class Solarization(object):
@@ -70,9 +69,7 @@ class Solarization(object):
             return img
 
 
-def load_pretrained_weights(
-    model, pretrained_weights, checkpoint_key, model_name, patch_size
-):
+def load_pretrained_weights(model, pretrained_weights, checkpoint_key, model_name, patch_size):
     if os.path.isfile(pretrained_weights):
         state_dict = torch.load(pretrained_weights, map_location="cpu")
         if checkpoint_key is not None and checkpoint_key in state_dict:
@@ -83,15 +80,9 @@ def load_pretrained_weights(
         # remove `backbone.` prefix induced by multicrop wrapper
         state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
         msg = model.load_state_dict(state_dict, strict=False)
-        print(
-            "Pretrained weights found at {} and loaded with msg: {}".format(
-                pretrained_weights, msg
-            )
-        )
+        print("Pretrained weights found at {} and loaded with msg: {}".format(pretrained_weights, msg))
     else:
-        print(
-            "Please use the `--pretrained_weights` argument to indicate the path of the checkpoint to evaluate."
-        )
+        print("Please use the `--pretrained_weights` argument to indicate the path of the checkpoint to evaluate.")
         url = None
         if model_name == "vit_small" and patch_size == 16:
             url = "dino_deitsmall16_pretrain/dino_deitsmall16_pretrain.pth"
@@ -102,17 +93,11 @@ def load_pretrained_weights(
         elif model_name == "vit_base" and patch_size == 8:
             url = "dino_vitbase8_pretrain/dino_vitbase8_pretrain.pth"
         if url is not None:
-            print(
-                "Since no pretrained weights have been provided, we load the reference pretrained DINO weights."
-            )
-            state_dict = torch.hub.load_state_dict_from_url(
-                url="https://dl.fbaipublicfiles.com/dino/" + url
-            )
+            print("Since no pretrained weights have been provided, we load the reference pretrained DINO weights.")
+            state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/" + url)
             model.load_state_dict(state_dict, strict=True)
         else:
-            print(
-                "There is no reference weights available for this model => We use random weights."
-            )
+            print("There is no reference weights available for this model => We use random weights.")
 
 
 def clip_gradients(model, clip):
@@ -153,21 +138,13 @@ def restart_from_checkpoint(ckp_path, run_variables=None, **kwargs):
         if key in checkpoint and value is not None:
             try:
                 msg = value.load_state_dict(checkpoint[key], strict=False)
-                print(
-                    "=> loaded {} from checkpoint '{}' with msg {}".format(
-                        key, ckp_path, msg
-                    )
-                )
+                print("=> loaded {} from checkpoint '{}' with msg {}".format(key, ckp_path, msg))
             except TypeError:
                 try:
                     msg = value.load_state_dict(checkpoint[key])
                     print("=> loaded {} from checkpoint '{}'".format(key, ckp_path))
                 except ValueError:
-                    print(
-                        "=> failed to load {} from checkpoint '{}'".format(
-                            key, ckp_path
-                        )
-                    )
+                    print("=> failed to load {} from checkpoint '{}'".format(key, ckp_path))
         else:
             print("=> failed to load {} from checkpoint '{}'".format(key, ckp_path))
 
@@ -178,18 +155,14 @@ def restart_from_checkpoint(ckp_path, run_variables=None, **kwargs):
                 run_variables[var_name] = checkpoint[var_name]
 
 
-def cosine_scheduler(
-    base_value, final_value, epochs, niter_per_ep, warmup_epochs=0, start_warmup_value=0
-):
+def cosine_scheduler(base_value, final_value, epochs, niter_per_ep, warmup_epochs=0, start_warmup_value=0):
     warmup_schedule = np.array([])
     warmup_iters = warmup_epochs * niter_per_ep
     if warmup_epochs > 0:
         warmup_schedule = np.linspace(start_warmup_value, base_value, warmup_iters)
 
     iters = np.arange(epochs * niter_per_ep - warmup_iters)
-    schedule = final_value + 0.5 * (base_value - final_value) * (
-        1 + np.cos(np.pi * iters / len(iters))
-    )
+    schedule = final_value + 0.5 * (base_value - final_value) * (1 + np.cos(np.pi * iters / len(iters)))
 
     schedule = np.concatenate((warmup_schedule, schedule))
     assert len(schedule) == epochs * niter_per_ep
@@ -326,9 +299,7 @@ class MetricLogger(object):
             return self.meters[attr]
         if attr in self.__dict__:
             return self.__dict__[attr]
-        raise AttributeError(
-            "'{}' object has no attribute '{}'".format(type(self).__name__, attr)
-        )
+        raise AttributeError("'{}' object has no attribute '{}'".format(type(self).__name__, attr))
 
     def __str__(self):
         loss_str = []
@@ -410,11 +381,7 @@ class MetricLogger(object):
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print(
-            "{} Total time: {} ({:.6f} s / it)".format(
-                header, total_time_str, total_time / len(iterable)
-            )
-        )
+        print("{} Total time: {} ({:.6f} s / it)".format(header, total_time_str, total_time / len(iterable)))
 
 
 def get_sha():
@@ -512,9 +479,7 @@ def init_distributed_mode(args):
     )
 
     torch.cuda.set_device(args.gpu)
-    print(
-        "| distributed init (rank {}): {}".format(args.rank, args.dist_url), flush=True
-    )
+    print("| distributed init (rank {}): {}".format(args.rank, args.dist_url), flush=True)
     dist.barrier()
     setup_for_distributed(args.rank == 0)
 
@@ -547,7 +512,7 @@ def _no_grad_trunc_normal_(tensor, mean, std, a, b):
         # Values are generated by using a truncated uniform distribution and
         # then using the inverse CDF for the normal distribution.
         # Get upper and lower cdf values
-        l = norm_cdf((a - mean) / std)
+        l = norm_cdf((a - mean) / std)  # noqa
         u = norm_cdf((b - mean) / std)
 
         # Uniformly fill tensor with values from [l, u], then translate to
@@ -615,9 +580,7 @@ class LARS(torch.optim.Optimizer):
                     one = torch.ones_like(param_norm)
                     q = torch.where(
                         param_norm > 0.0,
-                        torch.where(
-                            update_norm > 0, (g["eta"] * param_norm / update_norm), one
-                        ),
+                        torch.where(update_norm > 0, (g["eta"] * param_norm / update_norm), one),
                         one,
                     )
                     dp = dp.mul(q)

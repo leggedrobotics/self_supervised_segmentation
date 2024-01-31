@@ -20,11 +20,11 @@
 
 import os
 from os.path import join
-import numpy as np
 from tqdm import tqdm
 from torchvision.transforms.functional import five_crop
 
-from scripts.data_preprocessing.preprocessing_utils import *
+from scripts.data_preprocessing.preprocessing_utils import create_dataset_structure
+from PIL import Image
 
 
 DATA_DIR = "/scratch/tmp.17524104.plibera"
@@ -38,9 +38,7 @@ IMAGE_EXT = ".jpg"
 
 
 def save_five_crop(input_name, output_dir, sample_name, file_ext):
-    output_names = [
-        join(output_dir, sample_name + "_" + str(i) + file_ext) for i in range(5)
-    ]
+    output_names = [join(output_dir, sample_name + "_" + str(i) + file_ext) for i in range(5)]
     all_exist = True
     for name in output_names:
         if not os.path.isfile(name):
@@ -62,12 +60,8 @@ def preprocess_samples(input_dir, output_dir, subset, input_subset):
         sample_name = label_name.split(".")[0]
         img_path = join(input_dir, "imgs", input_subset, sample_name + IMAGE_EXT)
         label_path = join(input_dir, "labels", input_subset, label_name)
-        save_five_crop(
-            img_path, join(output_dir, "imgs", subset), sample_name, IMAGE_EXT
-        )
-        save_five_crop(
-            label_path, join(output_dir, "labels", subset), sample_name, ".png"
-        )
+        save_five_crop(img_path, join(output_dir, "imgs", subset), sample_name, IMAGE_EXT)
+        save_five_crop(label_path, join(output_dir, "labels", subset), sample_name, ".png")
 
 
 def main():

@@ -14,7 +14,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 import torch.multiprocessing
 from torch import nn
 import os
@@ -81,18 +81,10 @@ class DinoFeaturizer(nn.Module):
             # state_dict = {k.replace("prototypes", "last_layer"): v for k, v in state_dict.items()}
 
             msg = self.model.load_state_dict(state_dict, strict=False)
-            print(
-                "Pretrained weights found at {} and loaded with msg: {}".format(
-                    cfg.pretrained_weights, msg
-                )
-            )
+            print("Pretrained weights found at {} and loaded with msg: {}".format(cfg.pretrained_weights, msg))
         else:
-            print(
-                "Since no pretrained weights have been provided, we load the reference pretrained DINO weights."
-            )
-            state_dict = torch.hub.load_state_dict_from_url(
-                url="https://dl.fbaipublicfiles.com/dino/" + url
-            )
+            print("Since no pretrained weights have been provided, we load the reference pretrained DINO weights.")
+            state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/" + url)
             self.model.load_state_dict(state_dict, strict=True)
 
         if arch == "vit_small":
@@ -128,24 +120,16 @@ class DinoFeaturizer(nn.Module):
             feat_w = img.shape[3] // self.patch_size
 
             if self.feat_type == "feat":
-                image_feat = (
-                    feat[:, 1:, :]
-                    .reshape(feat.shape[0], feat_h, feat_w, -1)
-                    .permute(0, 3, 1, 2)
-                )
+                image_feat = feat[:, 1:, :].reshape(feat.shape[0], feat_h, feat_w, -1).permute(0, 3, 1, 2)
             elif self.feat_type == "KK":
-                image_k = qkv[1, :, :, 1:, :].reshape(
-                    feat.shape[0], 6, feat_h, feat_w, -1
-                )
+                image_k = qkv[1, :, :, 1:, :].reshape(feat.shape[0], 6, feat_h, feat_w, -1)
                 B, H, I, J, D = image_k.shape
                 image_feat = image_k.permute(0, 1, 4, 2, 3).reshape(B, H * D, I, J)
             else:
                 raise ValueError("Unknown feat type:{}".format(self.feat_type))
 
             if return_class_feat:
-                return (
-                    feat[:, :1, :].reshape(feat.shape[0], 1, 1, -1).permute(0, 3, 1, 2)
-                )
+                return feat[:, :1, :].reshape(feat.shape[0], 1, 1, -1).permute(0, 3, 1, 2)
 
         if self.proj_type is not None:
             code = self.cluster1(self.dropout(image_feat))
@@ -191,28 +175,17 @@ class ContrastiveCRFLoss(nn.Module):
         )
 
         selected_guidance = guidance[:, :, coords[0, :], coords[1, :]]
-        coord_diff = (
-            (coords.unsqueeze(-1) - coords.unsqueeze(1)).square().sum(0).unsqueeze(0)
-        )
-        guidance_diff = (
-            (selected_guidance.unsqueeze(-1) - selected_guidance.unsqueeze(2))
-            .square()
-            .sum(1)
-        )
+        coord_diff = (coords.unsqueeze(-1) - coords.unsqueeze(1)).square().sum(0).unsqueeze(0)
+        guidance_diff = (selected_guidance.unsqueeze(-1) - selected_guidance.unsqueeze(2)).square().sum(1)
 
         sim_kernel = (
-            self.w1
-            * torch.exp(
-                -coord_diff / (2 * self.alpha) - guidance_diff / (2 * self.beta)
-            )
+            self.w1 * torch.exp(-coord_diff / (2 * self.alpha) - guidance_diff / (2 * self.beta))
             + self.w2 * torch.exp(-coord_diff / (2 * self.gamma))
             - self.shift
         )
 
         selected_clusters = clusters[:, :, coords[0, :], coords[1, :]]
-        cluster_sims = torch.einsum(
-            "nka,nkb->nab", selected_clusters, selected_clusters
-        )
+        cluster_sims = torch.einsum("nka,nkb->nab", selected_clusters, selected_clusters)
         return -(cluster_sims * sim_kernel)
 
 
@@ -231,16 +204,10 @@ class LitUnsupervisedSegmenter(pl.LightningModule):
         self.cluster_probe = ClusterLookup(dim, n_classes + cfg.extra_clusters)
         self.linear_probe = nn.Conv2d(dim, n_classes, (1, 1))
         self.decoder = nn.Conv2d(dim, self.net.n_feats, (1, 1))
-        self.cluster_metrics = UnsupervisedMetrics(
-            "test/cluster/", n_classes, cfg.extra_clusters, True
-        )
+        self.cluster_metrics = UnsupervisedMetrics("test/cluster/", n_classes, cfg.extra_clusters, True)
         self.linear_metrics = UnsupervisedMetrics("test/linear/", n_classes, 0, False)
-        self.test_cluster_metrics = UnsupervisedMetrics(
-            "final/cluster/", n_classes, cfg.extra_clusters, True
-        )
-        self.test_linear_metrics = UnsupervisedMetrics(
-            "final/linear/", n_classes, 0, False
-        )
+        self.test_cluster_metrics = UnsupervisedMetrics("final/cluster/", n_classes, cfg.extra_clusters, True)
+        self.test_linear_metrics = UnsupervisedMetrics("final/linear/", n_classes, 0, False)
         self.linear_probe_loss_fn = torch.nn.CrossEntropyLoss()
         self.crf_loss_fn = ContrastiveCRFLoss(
             cfg.crf_samples, cfg.alpha, cfg.beta, cfg.gamma, cfg.w1, cfg.w2, cfg.shift
@@ -263,9 +230,7 @@ def my_app(cfg: DictConfig) -> None:
     model = LitUnsupervisedSegmenter.load_from_checkpoint(cfg.model_path)
     print(OmegaConf.to_yaml(model.cfg))
 
-    with open(
-        os.path.join(os.path.dirname(__file__), "../stego/cfg/model_config.yaml"), "r"
-    ) as file:
+    with open(os.path.join(os.path.dirname(__file__), "../stego/cfg/model_config.yaml"), "r") as file:
         model_cfg = omegaconf.OmegaConf.load(file)
     model_cfg.backbone = model.cfg.arch
     model_cfg.backbone_type = model.cfg.model_type

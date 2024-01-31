@@ -11,20 +11,21 @@
 
 
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 import hydra
 from omegaconf import DictConfig, OmegaConf
-import pytorch_lightning as pl
-from pytorch_lightning import Trainer, Callback
-from pytorch_lightning.loggers import TensorBoardLogger
+
+# import pytorch_lightning as pl
+from pytorch_lightning import Trainer
+
+# from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.utilities.seed import seed_everything
-import torch.multiprocessing
-import seaborn as sns
+
+# import torch.multiprocessing
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
 from stego.stego import Stego
-from stego.utils import *
+from stego.utils import prep_args, get_transform
 from stego.data import ContrastiveSegDataset
 
 
@@ -81,9 +82,7 @@ def my_app(cfg: DictConfig) -> None:
         pin_memory=True,
     )
 
-    wandb_logger = WandbLogger(
-        project=cfg.wandb_project, name=cfg.wandb_name, log_model=cfg.wandb_log_model
-    )
+    wandb_logger = WandbLogger(project=cfg.wandb_project, name=cfg.wandb_name, log_model=cfg.wandb_log_model)
 
     trainer = Trainer(
         logger=wandb_logger,

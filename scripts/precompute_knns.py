@@ -12,16 +12,15 @@ from os.path import join
 import hydra
 import numpy as np
 import torch.multiprocessing
-import torch.multiprocessing
-import torch.nn as nn
+import torch.nn.functional as F
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.utilities.seed import seed_everything
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from stego.data import ContrastiveSegDataset
 from stego.stego import Stego
-from stego.utils import *
+from stego.utils import prep_args, get_transform, get_nn_file_name
 
 
 def get_feats(model, loader):
@@ -46,9 +45,7 @@ def my_app(cfg: DictConfig) -> None:
     model = Stego(1).cuda()
 
     for image_set in image_sets:
-        feature_cache_file = get_nn_file_name(
-            cfg.data_dir, cfg.dataset_name, model.backbone_name, image_set, res
-        )
+        feature_cache_file = get_nn_file_name(cfg.data_dir, cfg.dataset_name, model.backbone_name, image_set, res)
         if not os.path.exists(feature_cache_file):
             print("{} not found, computing".format(feature_cache_file))
             dataset = ContrastiveSegDataset(

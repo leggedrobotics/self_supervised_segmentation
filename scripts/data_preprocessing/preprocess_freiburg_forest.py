@@ -41,8 +41,13 @@ import os
 from os.path import join
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
-from scripts.data_preprocessing.preprocessing_utils import *
+from scripts.data_preprocessing.preprocessing_utils import (
+    create_dataset_structure,
+    convert_rgb_label,
+    preprocess_and_copy_image,
+)
 
 
 DATA_DIR = "/scratch/tmp.17569824.plibera"
@@ -84,9 +89,7 @@ def preprocess_samples(input_dir, output_dir, subset, input_subset):
         sample_name = label_name.split("_")[0]
         img_path = join(input_dir, input_subset, "rgb", sample_name + "_Clipped.jpg")
         label_path = join(input_dir, input_subset, "GT_color", label_name)
-        preprocess_and_copy_image(
-            img_path, join(output_dir, "imgs", subset, sample_name + ".jpg"), False
-        )
+        preprocess_and_copy_image(img_path, join(output_dir, "imgs", subset, sample_name + ".jpg"), False)
         preprocess_and_copy_label_FF(
             label_path,
             join(output_dir, "labels", subset, sample_name + ".png"),

@@ -8,7 +8,7 @@ import torchvision.transforms.functional as VF
 from kornia.core import Tensor
 from kornia.core.check import KORNIA_CHECK, KORNIA_CHECK_SHAPE
 
-from stego.utils import *
+from stego.utils import unnorm, sample, super_perm, norm, tensor_correlation
 
 
 class SegmentationHead(nn.Module):
@@ -100,7 +100,7 @@ class ContrastiveCorrelationLoss(nn.Module):
         else:
             min_val = -9999.0
 
-        if self.cfg.stabalize:
+        if self.cfg.stabilize:
             loss = -cd.clamp(min_val, 0.8) * (fd - shift)
         else:
             loss = -cd.clamp(min_val) * (fd - shift)
@@ -128,12 +128,8 @@ class ContrastiveCorrelationLoss(nn.Module):
         feats_pos = sample(orig_feats_pos, coords2)
         code_pos = sample(orig_code_pos, coords2)
 
-        pos_intra_loss, pos_intra_cd = self.helper(
-            feats, feats, code, code, self.cfg.pos_intra_shift
-        )
-        pos_inter_loss, pos_inter_cd = self.helper(
-            feats, feats_pos, code, code_pos, self.cfg.pos_inter_shift
-        )
+        pos_intra_loss, pos_intra_cd = self.helper(feats, feats, code, code, self.cfg.pos_intra_shift)
+        pos_inter_loss, pos_inter_cd = self.helper(feats, feats_pos, code, code_pos, self.cfg.pos_inter_shift)
 
         neg_losses = []
         neg_cds = []
@@ -141,9 +137,7 @@ class ContrastiveCorrelationLoss(nn.Module):
             perm_neg = super_perm(orig_feats.shape[0], orig_feats.device)
             feats_neg = sample(orig_feats[perm_neg], coords2)
             code_neg = sample(orig_code[perm_neg], coords2)
-            neg_inter_loss, neg_inter_cd = self.helper(
-                feats, feats_neg, code, code_neg, self.cfg.neg_inter_shift
-            )
+            neg_inter_loss, neg_inter_cd = self.helper(feats, feats_neg, code, code_neg, self.cfg.neg_inter_shift)
             neg_losses.append(neg_inter_loss)
             neg_cds.append(neg_inter_cd)
         neg_inter_loss = torch.cat(neg_losses, axis=0)
@@ -167,9 +161,7 @@ class CRF:
     def __init__(self, cfg):
         self.cfg = cfg
 
-    def dense_crf(
-        self, image_tensor: torch.FloatTensor, output_logits: torch.FloatTensor
-    ) -> torch.FloatTensor:
+    def dense_crf(self, image_tensor: torch.FloatTensor, output_logits: torch.FloatTensor) -> torch.FloatTensor:
         image = np.array(VF.to_pil_image(unnorm(image_tensor)))[:, :, ::-1]
         H, W = image.shape[:2]
         image = np.ascontiguousarray(image)
@@ -324,9 +316,7 @@ class KMeans:
         KORNIA_CHECK_SHAPE(X, ["N", "D"])
 
         if self.cluster_centers is None:
-            self.cluster_centers = self._initialise_cluster_centers(
-                X, self.num_clusters
-            )
+            self.cluster_centers = self._initialise_cluster_centers(X, self.num_clusters)
         else:
             # X and cluster_centers should have same number of columns
             KORNIA_CHECK(
@@ -348,9 +338,7 @@ class KMeans:
 
             previous_centers = current_centers.clone()
 
-            one_hot_assignments = torch.nn.functional.one_hot(
-                cluster_assignment, self.num_clusters
-            ).float()
+            one_hot_assignments = torch.nn.functional.one_hot(cluster_assignment, self.num_clusters).float()
             sum_points = torch.mm(one_hot_assignments.T, X)
             num_points = one_hot_assignments.sum(0).unsqueeze(1)
 
@@ -363,9 +351,7 @@ class KMeans:
             current_centers = sum_points / num_points
 
             # sum of distance of how much the newly computed clusters have moved from their previous positions
-            center_shift = torch.sum(
-                torch.sqrt(torch.sum((current_centers - previous_centers) ** 2, dim=1))
-            )
+            center_shift = torch.sum(torch.sqrt(torch.sum((current_centers - previous_centers) ** 2, dim=1)))
 
             iteration = iteration + 1
 

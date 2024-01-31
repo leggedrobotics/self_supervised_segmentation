@@ -1,17 +1,11 @@
 import torch
-import torch.nn.functional as F
-from torchvision import transforms as T
-from torchmetrics import Metric
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.optimize import linear_sum_assignment
 from PIL import Image
-import sys
 import random
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 import os
 
-from stego.utils import *
+from stego.utils import get_nn_file_name
 
 
 class UnlabeledImageFolder(Dataset):
@@ -99,9 +93,7 @@ class DirectoryDataset(Dataset):
         self.target_transform = target_transform
 
         self.img_files = np.array(sorted(os.listdir(self.img_dir)))
-        assert (
-            len(self.img_files) > 0
-        ), "Could not find any images in dataset directory {}".format(self.img_dir)
+        assert len(self.img_files) > 0, "Could not find any images in dataset directory {}".format(self.img_dir)
         if os.path.exists(os.path.join(self.dir, "labels")):
             self.label_files = np.array(sorted(os.listdir(self.label_dir)))
             assert len(self.img_files) == len(
@@ -173,28 +165,18 @@ class ContrastiveSegDataset(Dataset):
         self.aug_geometric_transform = aug_geometric_transform
         self.aug_photometric_transform = aug_photometric_transform
 
-        self.dataset = DirectoryDataset(
-            data_dir, dataset_name, image_set, transform, target_transform
-        )
+        self.dataset = DirectoryDataset(data_dir, dataset_name, image_set, transform, target_transform)
 
-        feature_cache_file = get_nn_file_name(
-            data_dir, dataset_name, model_type, image_set, resolution
-        )
+        feature_cache_file = get_nn_file_name(data_dir, dataset_name, model_type, image_set, resolution)
         if pos_labels or pos_images:
             if not os.path.exists(feature_cache_file):
-                raise ValueError(
-                    "could not find nn file {} please run precompute_knns".format(
-                        feature_cache_file
-                    )
-                )
+                raise ValueError("could not find nn file {} please run precompute_knns".format(feature_cache_file))
             else:
                 loaded = np.load(feature_cache_file)
                 self.nns = loaded["nns"]
             assert (
                 len(self.dataset) == self.nns.shape[0]
-            ), "Found different numbers of images in dataset {} and nn file {}".format(
-                dataset_name, feature_cache_file
-            )
+            ), "Found different numbers of images in dataset {} and nn file {}".format(dataset_name, feature_cache_file)
 
     def __len__(self):
         return len(self.dataset)
@@ -207,9 +189,7 @@ class ContrastiveSegDataset(Dataset):
         pack = self.dataset[ind]
 
         if self.pos_images or self.pos_labels:
-            ind_pos = self.nns[ind][
-                torch.randint(low=1, high=self.num_neighbors + 1, size=[]).item()
-            ]
+            ind_pos = self.nns[ind][torch.randint(low=1, high=self.num_neighbors + 1, size=[]).item()]
             pack_pos = self.dataset[ind_pos]
 
         seed = np.random.randint(2147483647)  # make a seed with numpy generator
@@ -246,9 +226,7 @@ class ContrastiveSegDataset(Dataset):
             ret["mask_pos"] = pack_pos[2]
 
         if self.aug_photometric_transform is not None:
-            img_aug = self.aug_photometric_transform(
-                self.aug_geometric_transform(pack[0])
-            )
+            img_aug = self.aug_photometric_transform(self.aug_geometric_transform(pack[0]))
 
             self._set_seed(seed)
             coord_aug = self.aug_geometric_transform(coord)

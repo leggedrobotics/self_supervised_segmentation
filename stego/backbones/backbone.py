@@ -69,6 +69,10 @@ class Dinov2ViT(Backbone):
             self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vits14")
         elif cfg.backbone_type == "vit_base":
             self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
+        if cfg.backbone_type == "vit_small_reg":
+            self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vits14_reg")
+        elif cfg.backbone_type == "vit_base_reg":
+            self.model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14_reg")
         else:
             raise ValueError("Model type {} unavailable".format(cfg.backbone_type))
 

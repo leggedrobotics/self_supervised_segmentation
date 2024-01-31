@@ -14,12 +14,15 @@
 import hydra
 import torch.multiprocessing
 from PIL import Image
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
+import numpy as np
 
-from stego.stego import *
+from stego.utils import prep_args, create_cityscapes_colormap, flexible_collate, get_transform
+from stego.data import UnlabeledImageFolder
+from stego.stego import Stego
 
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -65,9 +68,7 @@ def my_app(cfg: DictConfig) -> None:
             linear_crf = linear_crf.cpu()
             for j in range(img.shape[0]):
                 new_name = ".".join(name[j].split(".")[:-1]) + ".png"
-                Image.fromarray(cmap[linear_crf[j]].astype(np.uint8)).save(
-                    os.path.join(result_dir, "linear", new_name)
-                )
+                Image.fromarray(cmap[linear_crf[j]].astype(np.uint8)).save(os.path.join(result_dir, "linear", new_name))
                 Image.fromarray(cmap[cluster_crf[j]].astype(np.uint8)).save(
                     os.path.join(result_dir, "cluster", new_name)
                 )

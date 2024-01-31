@@ -30,8 +30,9 @@ import os
 from os.path import join
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
-from scripts.data_preprocessing.preprocessing_utils import *
+from scripts.data_preprocessing.preprocessing_utils import create_dataset_structure, preprocess_and_copy_image
 
 
 DATA_DIR = "/cluster/scratch/plibera"
@@ -76,9 +77,7 @@ def preprocess_samples(input_dir, output_dir, subset, input_subset):
         sample_name = os.path.splitext(label_name)[0]
         img_path = join(input_dir, "imgs", input_subset, sample_name + ".jpg")
         label_path = join(input_dir, "labels", input_subset, label_name)
-        preprocess_and_copy_image(
-            img_path, join(output_dir, "imgs", subset, sample_name + ".jpg"), False
-        )
+        preprocess_and_copy_image(img_path, join(output_dir, "imgs", subset, sample_name + ".jpg"), False)
         preprocess_and_save_trav_label(
             label_path,
             join(output_dir, "labels", subset, sample_name + ".png"),

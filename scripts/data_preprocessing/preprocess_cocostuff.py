@@ -35,8 +35,9 @@ import os
 from os.path import join
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
-from scripts.data_preprocessing.preprocessing_utils import *
+from scripts.data_preprocessing.preprocessing_utils import create_dataset_structure
 
 
 DATA_DIR = "/scratch/tmp.17524104.plibera"
@@ -259,12 +260,8 @@ def preprocess_samples(input_dir, output_dir, subset, input_subset):
         sample_name = label_name.split(".")[0]
         img_path = join(input_dir, "images", input_subset, sample_name + ".jpg")
         label_path = join(input_dir, "annotations", input_subset, label_name)
-        preprocess_and_copy_image_cocostuff(
-            img_path, join(output_dir, "imgs", subset, sample_name + ".jpg")
-        )
-        preprocess_and_copy_label_cocostuff(
-            label_path, join(output_dir, "labels", subset, sample_name + ".png")
-        )
+        preprocess_and_copy_image_cocostuff(img_path, join(output_dir, "imgs", subset, sample_name + ".jpg"))
+        preprocess_and_copy_label_cocostuff(label_path, join(output_dir, "labels", subset, sample_name + ".png"))
 
 
 def main():
