@@ -90,9 +90,11 @@ class Stego(pl.LightningModule):
         Returns segmentation features for a given image.
         Returned features are an average of two passes through STEGO, with the input image and its horizontal flip.
         """
-        code1 = self.forward(img)[1]
-        code2 = self.forward(img.flip(dims=[3]))[1]
-        code = (code1 + code2.flip(dims=[3])) / 2
+        # code1 = self.forward(img)[1]
+        # code2 = self.forward(img.flip(dims=[3]))[1]
+        # code = (code1 + code2.flip(dims=[3])) / 2
+        # return code
+        code = self.forward(img)[1]
         return code
 
     def postprocess_crf(self, img, probs):
