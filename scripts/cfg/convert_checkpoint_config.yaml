@@ -1,5 +1,5 @@
-model_path: "/cluster/home/plibera/self_supervised_segmentation/models/cocostuff27_vit_base_5.ckpt"
-output_path: "/cluster/home/plibera/self_supervised_segmentation/models/stego_cocostuff27_vit_base_5_cluster_linear_fine_tuning.ckpt"
+model_path: "/root/catkin_ws/src/self_supervised_segmentation/scripts/models/cocostuff27_vit_base_5.ckpt"
+output_path: "/root/catkin_ws/src/self_supervised_segmentation/scripts/models/stego_cocostuff27_vit_base_5_cluster_linear_fine_tuning.ckpt"
 
 hydra:
   run:

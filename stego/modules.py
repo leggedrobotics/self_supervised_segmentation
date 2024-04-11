@@ -6,23 +6,24 @@ import pydensecrf.densecrf as dcrf
 import pydensecrf.utils as utils
 import torchvision.transforms.functional as VF
 from kornia.core import Tensor
-from kornia.testing import KORNIA_CHECK, KORNIA_CHECK_SHAPE
+from kornia.core.check import KORNIA_CHECK, KORNIA_CHECK_SHAPE
 
-from stego.utils import *
-
+from stego.utils import unnorm, sample, super_perm, norm, tensor_correlation
 
 
 class SegmentationHead(nn.Module):
     """
     STEGO's segmentation head module.
     """
+
     def __init__(self, input_dim, dim):
         super().__init__()
         self.linear = torch.nn.Sequential(torch.nn.Conv2d(input_dim, dim, (1, 1)))
         self.nonlinear = torch.nn.Sequential(
             torch.nn.Conv2d(input_dim, input_dim, (1, 1)),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(input_dim, dim, (1, 1)))
+            torch.nn.Conv2d(input_dim, dim, (1, 1)),
+        )
 
     def forward(self, inputs):
         return self.linear(inputs) + self.nonlinear(inputs)
@@ -50,8 +51,11 @@ class ClusterLookup(nn.Module):
         inner_products = torch.einsum("bchw,nc->bnhw", normed_features, normed_clusters)
 
         if alpha is None:
-            cluster_probs = F.one_hot(torch.argmax(inner_products, dim=1), self.clusters.shape[0]) \
-                .permute(0, 3, 1, 2).to(torch.float32)
+            cluster_probs = (
+                F.one_hot(torch.argmax(inner_products, dim=1), self.clusters.shape[0])
+                .permute(0, 3, 1, 2)
+                .to(torch.float32)
+            )
         else:
             cluster_probs = nn.functional.softmax(inner_products * alpha, dim=1)
 
@@ -67,7 +71,10 @@ class ContrastiveCorrelationLoss(nn.Module):
     STEGO's correlation loss.
     """
 
-    def __init__(self, cfg, ):
+    def __init__(
+        self,
+        cfg,
+    ):
         super(ContrastiveCorrelationLoss, self).__init__()
         self.cfg = cfg
 
@@ -93,19 +100,26 @@ class ContrastiveCorrelationLoss(nn.Module):
         else:
             min_val = -9999.0
 
-        if self.cfg.stabalize:
-            loss = - cd.clamp(min_val, .8) * (fd - shift)
+        if self.cfg.stabilize:
+            loss = -cd.clamp(min_val, 0.8) * (fd - shift)
         else:
-            loss = - cd.clamp(min_val) * (fd - shift)
+            loss = -cd.clamp(min_val) * (fd - shift)
 
         return loss, cd
 
-    def forward(self,
-                orig_feats: torch.Tensor, orig_feats_pos: torch.Tensor,
-                orig_code: torch.Tensor, orig_code_pos: torch.Tensor,
-                ):
-
-        coord_shape = [orig_feats.shape[0], self.cfg.feature_samples, self.cfg.feature_samples, 2]
+    def forward(
+        self,
+        orig_feats: torch.Tensor,
+        orig_feats_pos: torch.Tensor,
+        orig_code: torch.Tensor,
+        orig_code_pos: torch.Tensor,
+    ):
+        coord_shape = [
+            orig_feats.shape[0],
+            self.cfg.feature_samples,
+            self.cfg.feature_samples,
+            2,
+        ]
         coords1 = torch.rand(coord_shape, device=orig_feats.device) * 2 - 1
         coords2 = torch.rand(coord_shape, device=orig_feats.device) * 2 - 1
 
@@ -114,10 +128,8 @@ class ContrastiveCorrelationLoss(nn.Module):
         feats_pos = sample(orig_feats_pos, coords2)
         code_pos = sample(orig_code_pos, coords2)
 
-        pos_intra_loss, pos_intra_cd = self.helper(
-            feats, feats, code, code, self.cfg.pos_intra_shift)
-        pos_inter_loss, pos_inter_cd = self.helper(
-            feats, feats_pos, code, code_pos, self.cfg.pos_inter_shift)
+        pos_intra_loss, pos_intra_cd = self.helper(feats, feats, code, code, self.cfg.pos_intra_shift)
+        pos_inter_loss, pos_inter_cd = self.helper(feats, feats_pos, code, code_pos, self.cfg.pos_inter_shift)
 
         neg_losses = []
         neg_cds = []
@@ -125,25 +137,27 @@ class ContrastiveCorrelationLoss(nn.Module):
             perm_neg = super_perm(orig_feats.shape[0], orig_feats.device)
             feats_neg = sample(orig_feats[perm_neg], coords2)
             code_neg = sample(orig_code[perm_neg], coords2)
-            neg_inter_loss, neg_inter_cd = self.helper(
-                feats, feats_neg, code, code_neg, self.cfg.neg_inter_shift)
+            neg_inter_loss, neg_inter_cd = self.helper(feats, feats_neg, code, code_neg, self.cfg.neg_inter_shift)
             neg_losses.append(neg_inter_loss)
             neg_cds.append(neg_inter_cd)
         neg_inter_loss = torch.cat(neg_losses, axis=0)
         neg_inter_cd = torch.cat(neg_cds, axis=0)
 
-        return (pos_intra_loss.mean(),
-                pos_intra_cd,
-                pos_inter_loss.mean(),
-                pos_inter_cd,
-                neg_inter_loss,
-                neg_inter_cd)
+        return (
+            pos_intra_loss.mean(),
+            pos_intra_cd,
+            pos_inter_loss.mean(),
+            pos_inter_cd,
+            neg_inter_loss,
+            neg_inter_cd,
+        )
 
 
-class CRF():
+class CRF:
     """
     Class encapsulating STEGO's CRF postprocessing step.
     """
+
     def __init__(self, cfg):
         self.cfg = cfg
 
@@ -152,8 +166,12 @@ class CRF():
         H, W = image.shape[:2]
         image = np.ascontiguousarray(image)
 
-        output_logits = F.interpolate(output_logits.unsqueeze(0), size=(H, W), mode="bilinear",
-                                    align_corners=False).squeeze()
+        output_logits = F.interpolate(
+            output_logits.unsqueeze(0),
+            size=(H, W),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze()
         output_probs = F.softmax(output_logits, dim=0).cpu().numpy()
 
         c = output_probs.shape[0]
@@ -166,11 +184,16 @@ class CRF():
         d = dcrf.DenseCRF2D(w, h, c)
         d.setUnaryEnergy(U)
         d.addPairwiseGaussian(sxy=self.cfg.pos_xy_std, compat=self.cfg.pos_w)
-        d.addPairwiseBilateral(sxy=self.cfg.bi_xy_std, srgb=self.cfg.bi_rgb_std, rgbim=image, compat=self.cfg.bi_w)
+        d.addPairwiseBilateral(
+            sxy=self.cfg.bi_xy_std,
+            srgb=self.cfg.bi_rgb_std,
+            rgbim=image,
+            compat=self.cfg.bi_w,
+        )
 
         Q = d.inference(self.cfg.crf_max_iter)
         Q = np.array(Q).reshape((c, h, w))
-        return torch.from_numpy(Q)    
+        return torch.from_numpy(Q)
 
 
 class KMeans:
@@ -192,8 +215,8 @@ class KMeans:
         cluster_centers: Tensor,
         tolerance: float = 10e-4,
         max_iterations: int = 0,
-        distance_metric = 'euclidean',
-        seed = None,
+        distance_metric="euclidean",
+        seed=None,
     ) -> None:
         KORNIA_CHECK(num_clusters != 0, "num_clusters can't be 0")
 
@@ -220,11 +243,17 @@ class KMeans:
             torch.manual_seed(seed)
 
     def get_cluster_centers(self) -> Tensor:
-        KORNIA_CHECK(self.final_cluster_centers is not None, "Model has not been fit to a dataset")
+        KORNIA_CHECK(
+            self.final_cluster_centers is not None,
+            "Model has not been fit to a dataset",
+        )
         return self.final_cluster_centers
 
     def get_cluster_assignments(self) -> Tensor:
-        KORNIA_CHECK(self.final_cluster_assignments is not None, "Model has not been fit to a dataset")
+        KORNIA_CHECK(
+            self.final_cluster_assignments is not None,
+            "Model has not been fit to a dataset",
+        )
         return self.final_cluster_assignments
 
     def _initialise_cluster_centers(self, X: Tensor, num_clusters: int) -> Tensor:
@@ -276,7 +305,7 @@ class KMeans:
         normed_B = F.normalize(data2, dim=1)
         distance = 1.0 - torch.einsum("nd,cd->nc", normed_A, normed_B)
         return distance
-    
+
     def fit(self, X: Tensor) -> None:
         """Iterative KMeans clustering till a threshold for shift in cluster centers or a maximum no of iterations
         have reached.
@@ -314,7 +343,7 @@ class KMeans:
             num_points = one_hot_assignments.sum(0).unsqueeze(1)
 
             # Handle empty clusters by replacing them with a random point
-            empty_clusters = (num_points.squeeze() == 0)
+            empty_clusters = num_points.squeeze() == 0
             random_points = X[torch.randint(len(X), (torch.sum(empty_clusters),))]
             sum_points[empty_clusters, :] = random_points
             num_points[empty_clusters] = 1

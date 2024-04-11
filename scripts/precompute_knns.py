@@ -12,16 +12,16 @@ from os.path import join
 import hydra
 import numpy as np
 import torch.multiprocessing
-import torch.multiprocessing
-import torch.nn as nn
+import torch.nn.functional as F
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning.utilities.seed import seed_everything
-from torch.utils.data import DataLoader, Dataset
+from pytorch_lightning import seed_everything
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from stego.data import ContrastiveSegDataset
-from stego.stego import STEGO
-from stego.utils import *
+from stego.stego import Stego
+from stego.utils import prep_args, get_transform, get_nn_file_name
+
 
 def get_feats(model, loader):
     all_feats = []
@@ -42,7 +42,7 @@ def my_app(cfg: DictConfig) -> None:
 
     res = cfg.resolution
     n_batches = 16
-    model = STEGO(1).cuda()
+    model = Stego(1).cuda()
 
     for image_set in image_sets:
         feature_cache_file = get_nn_file_name(cfg.data_dir, cfg.dataset_name, model.backbone_name, image_set, res)
@@ -55,10 +55,16 @@ def my_app(cfg: DictConfig) -> None:
                 transform=get_transform(res, False, "center"),
                 target_transform=get_transform(res, True, "center"),
                 model_type=model.backbone_name,
-                resolution=res
+                resolution=res,
             )
 
-            loader = DataLoader(dataset, cfg.batch_size, shuffle=False, num_workers=cfg.num_workers, pin_memory=False)
+            loader = DataLoader(
+                dataset,
+                cfg.batch_size,
+                shuffle=False,
+                num_workers=cfg.num_workers,
+                pin_memory=False,
+            )
 
             with torch.no_grad():
                 normed_feats = get_feats(model, loader)
@@ -67,7 +73,7 @@ def my_app(cfg: DictConfig) -> None:
                 print(normed_feats.shape)
                 for i in tqdm(range(0, normed_feats.shape[0], step)):
                     torch.cuda.empty_cache()
-                    batch_feats = normed_feats[i:i + step, :]
+                    batch_feats = normed_feats[i : i + step, :]
                     pairwise_sims = torch.einsum("nf,mf->nm", batch_feats, normed_feats)
                     all_nns.append(torch.topk(pairwise_sims, 30)[1])
                     del pairwise_sims

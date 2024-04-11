@@ -1,24 +1,18 @@
 import torch
-import torch.nn.functional as F
-from torchvision import transforms as T
-from torchmetrics import Metric
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.optimize import linear_sum_assignment
 from PIL import Image
-import sys
 import random
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 import os
 
-from stego.utils import *
-
+from stego.utils import get_nn_file_name
 
 
 class UnlabeledImageFolder(Dataset):
     """
     A simple Dataset class to read images from a given folder.
     """
+
     def __init__(self, root, transform):
         super(UnlabeledImageFolder, self).__init__()
         self.root = root
@@ -26,7 +20,7 @@ class UnlabeledImageFolder(Dataset):
         self.images = os.listdir(self.root)
 
     def __getitem__(self, index):
-        image = Image.open(os.path.join(self.root, self.images[index])).convert('RGB')
+        image = Image.open(os.path.join(self.root, self.images[index])).convert("RGB")
         seed = np.random.randint(2147483647)
         random.seed(seed)
         torch.manual_seed(seed)
@@ -39,36 +33,37 @@ class UnlabeledImageFolder(Dataset):
 
 
 def create_cityscapes_colormap():
-    colors = [(128, 64, 128),
-              (244, 35, 232),
-              (250, 170, 160),
-              (230, 150, 140),
-              (70, 70, 70),
-              (102, 102, 156),
-              (190, 153, 153),
-              (180, 165, 180),
-              (150, 100, 100),
-              (150, 120, 90),
-              (153, 153, 153),
-              (153, 153, 153),
-              (250, 170, 30),
-              (220, 220, 0),
-              (107, 142, 35),
-              (152, 251, 152),
-              (70, 130, 180),
-              (220, 20, 60),
-              (255, 0, 0),
-              (0, 0, 142),
-              (0, 0, 70),
-              (0, 60, 100),
-              (0, 0, 90),
-              (0, 0, 110),
-              (0, 80, 100),
-              (0, 0, 230),
-              (119, 11, 32),
-              (0, 0, 0)]
+    colors = [
+        (128, 64, 128),
+        (244, 35, 232),
+        (250, 170, 160),
+        (230, 150, 140),
+        (70, 70, 70),
+        (102, 102, 156),
+        (190, 153, 153),
+        (180, 165, 180),
+        (150, 100, 100),
+        (150, 120, 90),
+        (153, 153, 153),
+        (153, 153, 153),
+        (250, 170, 30),
+        (220, 220, 0),
+        (107, 142, 35),
+        (152, 251, 152),
+        (70, 130, 180),
+        (220, 20, 60),
+        (255, 0, 0),
+        (0, 0, 142),
+        (0, 0, 70),
+        (0, 60, 100),
+        (0, 0, 90),
+        (0, 0, 110),
+        (0, 80, 100),
+        (0, 0, 230),
+        (119, 11, 32),
+        (0, 0, 0),
+    ]
     return np.array(colors)
-
 
 
 class DirectoryDataset(Dataset):
@@ -85,6 +80,7 @@ class DirectoryDataset(Dataset):
     If available, file names in labels/image_set should be the same as file names in imgs/image_set (excluding extensions).
     If labels are not available (there is no labels folder) this class returns zero arrays of shape corresponding to the image shape.
     """
+
     def __init__(self, data_dir, dataset_name, image_set, transform, target_transform):
         super(DirectoryDataset, self).__init__()
         self.split = image_set
@@ -100,8 +96,11 @@ class DirectoryDataset(Dataset):
         assert len(self.img_files) > 0, "Could not find any images in dataset directory {}".format(self.img_dir)
         if os.path.exists(os.path.join(self.dir, "labels")):
             self.label_files = np.array(sorted(os.listdir(self.label_dir)))
-            assert len(self.img_files) == len(self.label_files),\
-                "The {} dataset contains a different number of images and labels: {} images and {} labels".format(self.dataset_name, len(self.img_files), len(self.label_files))
+            assert len(self.img_files) == len(
+                self.label_files
+            ), "The {} dataset contains a different number of images and labels: {} images and {} labels".format(
+                self.dataset_name, len(self.img_files), len(self.label_files)
+            )
         else:
             self.label_files = None
 
@@ -111,7 +110,7 @@ class DirectoryDataset(Dataset):
         if self.label_files is not None:
             label_name = self.label_files[index]
             label = Image.open(os.path.join(self.label_dir, label_name))
-        
+
         seed = np.random.randint(2147483647)
         random.seed(seed)
         torch.manual_seed(seed)
@@ -130,7 +129,6 @@ class DirectoryDataset(Dataset):
         return len(self.img_files)
 
 
-
 class ContrastiveSegDataset(Dataset):
     """
     The main Dataset class used by STEGO.
@@ -138,22 +136,24 @@ class ContrastiveSegDataset(Dataset):
     Additionally, this class uses the precomputed Nearest Neighbor files to extract the knn corresponding image for STEGO training.
     It returns a dictionary containing an image and its positive pair (one of the nearest neighbor images).
     """
-    def __init__(self,
-                 data_dir,
-                 dataset_name,
-                 image_set,
-                 transform,
-                 target_transform,
-                 model_type,
-                 resolution,
-                 aug_geometric_transform=None,
-                 aug_photometric_transform=None,
-                 num_neighbors=5,
-                 mask=False,
-                 pos_labels=False,
-                 pos_images=False,
-                 extra_transform=None,
-                 ):
+
+    def __init__(
+        self,
+        data_dir,
+        dataset_name,
+        image_set,
+        transform,
+        target_transform,
+        model_type,
+        resolution,
+        aug_geometric_transform=None,
+        aug_photometric_transform=None,
+        num_neighbors=5,
+        mask=False,
+        pos_labels=False,
+        pos_images=False,
+        extra_transform=None,
+    ):
         super(ContrastiveSegDataset).__init__()
         self.num_neighbors = num_neighbors
         self.image_set = image_set
@@ -174,7 +174,9 @@ class ContrastiveSegDataset(Dataset):
             else:
                 loaded = np.load(feature_cache_file)
                 self.nns = loaded["nns"]
-            assert len(self.dataset) == self.nns.shape[0], "Found different numbers of images in dataset {} and nn file {}".format(dataset_name, feature_cache_file)
+            assert (
+                len(self.dataset) == self.nns.shape[0]
+            ), "Found different numbers of images in dataset {} and nn file {}".format(dataset_name, feature_cache_file)
 
     def __len__(self):
         return len(self.dataset)
@@ -193,8 +195,12 @@ class ContrastiveSegDataset(Dataset):
         seed = np.random.randint(2147483647)  # make a seed with numpy generator
 
         self._set_seed(seed)
-        coord_entries = torch.meshgrid([torch.linspace(-1, 1, pack[0].shape[1]),
-                                        torch.linspace(-1, 1, pack[0].shape[2])])
+        coord_entries = torch.meshgrid(
+            [
+                torch.linspace(-1, 1, pack[0].shape[1]),
+                torch.linspace(-1, 1, pack[0].shape[2]),
+            ]
+        )
         coord = torch.cat([t.unsqueeze(0) for t in coord_entries], 0)
 
         if self.extra_transform is not None:
