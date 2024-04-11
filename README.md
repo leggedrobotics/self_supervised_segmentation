@@ -22,6 +22,7 @@ _SLIC (WVN's segmentation method), standard STEGO, and STEGO with per-image feat
    * [Train Segmentation](#train-segmentation)
    * [Evaluate for WVN](#evaluate-segmentation-for-wvn)
    * [Generate Plots](#generate-plots)
+   * [License](#license)
 
 
 
@@ -225,3 +226,17 @@ To generate the plots:
 ```
 python scripts/plot.py
 ```
+
+## License
+```
+Copyright (c) 2022-2024, ETH Zurich, Piotr Libera, Jonas Frey, Matias Mattamala.
+All rights reserved. Licensed under the MIT license.
+```
+
+This project is based on previous work by Mark Hamilton.
+```
+Copyright (c) Mark Hamilton.
+All rights reserved. Licensed under the MIT license.
+```
+
+Files in `stego/backbones/dino` are licensed under the Apache 2.0 license by Facebook, Inc. and its affiliates. See the file headers for details.
