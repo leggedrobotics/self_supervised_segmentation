@@ -39,6 +39,7 @@ INSTALL_REQUIRES = [
     "wget",
     "rospkg",
     "wandb",
+    "gdown"
 ]
 
 setup(
