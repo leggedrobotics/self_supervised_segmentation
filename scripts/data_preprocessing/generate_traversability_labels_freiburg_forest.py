@@ -1,3 +1,9 @@
+#
+# Copyright (c) 2022-2024, ETH Zurich, Piotr Libera, Jonas Frey, Matias Mattamala.
+# All rights reserved. Licensed under the MIT license.
+# See LICENSE file in the project root for details.
+#
+#
 ############################################
 # Freiburg Forest traversability labels
 #
@@ -35,7 +41,7 @@ from PIL import Image
 from scripts.data_preprocessing.preprocessing_utils import create_dataset_structure, preprocess_and_copy_image
 
 
-DATA_DIR = "/cluster/scratch/plibera"
+DATA_DIR = "/data"
 INPUT_NAME = "freiburg_forest_preprocessed"
 OUTPUT_NAME = "freiburg_forest_preprocessed_trav"
 

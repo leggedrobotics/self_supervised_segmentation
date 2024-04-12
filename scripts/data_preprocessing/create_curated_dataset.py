@@ -1,3 +1,9 @@
+#
+# Copyright (c) 2022-2024, ETH Zurich, Piotr Libera, Jonas Frey, Matias Mattamala.
+# All rights reserved. Licensed under the MIT license.
+# See LICENSE file in the project root for details.
+#
+#
 ############################################
 # Curated dataset generation script
 #
@@ -28,12 +34,12 @@ from tqdm import tqdm
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR = "/scratch/tmp.17524104.plibera"
+DATA_DIR = "/data"
 INPUT_NAME = "cocostuff_preprocessed"
 OUTPUT_NAME = "cocostuff_curated"
 
-TRAIN_SAMPLES_FILE = "/scratch/tmp.17524104.plibera/cocostuff/curated/train2017/Coco164kFull_Stuff_Coarse.txt"
-VAL_SAMPLES_FILE = "/scratch/tmp.17524104.plibera/cocostuff/curated/val2017/Coco164kFull_Stuff_Coarse.txt"
+TRAIN_SAMPLES_FILE = "/data/cocostuff/curated/train2017/Coco164kFull_Stuff_Coarse.txt"
+VAL_SAMPLES_FILE = "/data/cocostuff/curated/val2017/Coco164kFull_Stuff_Coarse.txt"
 
 
 def preprocess_samples(input_dir, output_dir, subset, input_subset, sample_file):

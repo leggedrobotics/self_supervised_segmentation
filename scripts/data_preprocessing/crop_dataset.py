@@ -1,3 +1,9 @@
+#
+# Copyright (c) 2022-2024, ETH Zurich, Piotr Libera, Jonas Frey, Matias Mattamala.
+# All rights reserved. Licensed under the MIT license.
+# See LICENSE file in the project root for details.
+#
+#
 ############################################
 # Cropped dataset generation script
 #
@@ -27,7 +33,7 @@ from scripts.data_preprocessing.preprocessing_utils import create_dataset_struct
 from PIL import Image
 
 
-DATA_DIR = "/scratch/tmp.17524104.plibera"
+DATA_DIR = "/data"
 INPUT_NAME = "cocostuff_curated"
 OUTPUT_NAME = "cocostuff_curated_cropped"
 

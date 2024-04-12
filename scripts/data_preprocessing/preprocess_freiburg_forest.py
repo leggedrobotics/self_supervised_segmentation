@@ -1,3 +1,9 @@
+#
+# Copyright (c) 2022-2024, ETH Zurich, Piotr Libera, Jonas Frey, Matias Mattamala.
+# All rights reserved. Licensed under the MIT license.
+# See LICENSE file in the project root for details.
+#
+#
 ############################################
 # Freiburg Forest preprocessing script
 #
@@ -50,7 +56,7 @@ from scripts.data_preprocessing.preprocessing_utils import (
 )
 
 
-DATA_DIR = "/scratch/tmp.17569824.plibera"
+DATA_DIR = "/data"
 INPUT_NAME = "freiburg_forest_annotated"
 OUTPUT_NAME = "freiburg_forest_preprocessed"
 
