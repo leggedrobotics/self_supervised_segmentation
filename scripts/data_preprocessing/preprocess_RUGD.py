@@ -49,7 +49,7 @@ from tqdm import tqdm
 from scripts.data_preprocessing.preprocessing_utils import *
 
 
-DATA_DIR = "/media"
+DATA_DIR = "/data"
 INPUT_NAME = "RUGD"
 OUTPUT_NAME = "RUGD_preprocessed"
 

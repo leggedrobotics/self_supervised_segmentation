@@ -41,7 +41,7 @@ from PIL import Image
 from scripts.data_preprocessing.preprocessing_utils import create_dataset_structure, preprocess_and_copy_image
 
 
-DATA_DIR = "/cluster/scratch/plibera"
+DATA_DIR = "/data"
 INPUT_NAME = "freiburg_forest_preprocessed"
 OUTPUT_NAME = "freiburg_forest_preprocessed_trav"
 

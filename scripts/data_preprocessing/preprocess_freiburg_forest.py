@@ -56,7 +56,7 @@ from scripts.data_preprocessing.preprocessing_utils import (
 )
 
 
-DATA_DIR = "/scratch/tmp.17569824.plibera"
+DATA_DIR = "/data"
 INPUT_NAME = "freiburg_forest_annotated"
 OUTPUT_NAME = "freiburg_forest_preprocessed"
 
