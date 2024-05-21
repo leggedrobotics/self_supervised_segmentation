@@ -33,18 +33,18 @@ from tqdm import tqdm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from sklearn.metrics import precision_recall_curve, average_precision_score
 
-from stego.stego import (
-    Stego,
+from stego.stego import Stego
+from stego.data import ContrastiveSegDataset
+from stego.utils import (
     prep_args,
     get_transform,
     remove_axes,
     sample,
-    ContrastiveSegDataset,
     tensor_correlation,
     prep_for_plot,
     load_image_to_tensor,
+    norm
 )
-from stego.utils import norm
 
 
 class Plotter:
@@ -147,7 +147,7 @@ class Plotter:
         color_bar = fig.colorbar(im1, cax=cax, orientation="vertical")
         color_bar.set_alpha(1)
         color_bar.draw_all()
-        plt.show()
+        plt.draw()
 
     def plot_correspondences_interactive(self):
         """
@@ -182,6 +182,7 @@ class Plotter:
         fig.canvas.mpl_connect("button_press_event", onclick)
         query_point = torch.tensor([[0.0, 0.0]]).reshape(1, 1, 1, 2).cuda()
         self.plot_figure(img_a, img_b, query_point, axes, fig)
+        plt.show()
 
     def get_net_fd(self, feats1, feats2, label1, label2, coords1, coords2):
         with torch.no_grad():
