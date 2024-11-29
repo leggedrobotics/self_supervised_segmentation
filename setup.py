@@ -35,7 +35,7 @@ INSTALL_REQUIRES = [
     "termcolor",
     "pydensecrf@git+https://github.com/lucasb-eyer/pydensecrf.git",
     "liegroups@git+https://github.com/mmattamala/liegroups",
-    "opencv-python>=4.6",
+    "opencv-python",
     "wget",
     "rospkg",
     "wandb",
